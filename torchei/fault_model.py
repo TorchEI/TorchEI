@@ -1,6 +1,7 @@
 from copy import deepcopy
 import logging
 from math import log10 as lg
+import random
 from statistics import mean
 from time import monotonic_ns
 from typing import Any, Callable, OrderedDict, TypeVar, Union
@@ -195,7 +196,7 @@ class fault_model:
                             break
 
             if group_return:
-                return estimation, group_estimation, n
+                return locals().get("estimation",None), group_estimation, n
             elif adaptive or kalman:
                 return estimation[-1].item()
             elif group_size:
@@ -206,10 +207,11 @@ class fault_model:
         except Exception as e:
             logging.error(f"error happened while calc reliability\n{e}")
             last_estimation = locals().get("estimation", [None])[-1]
-            logging.log(
+            logging.log(5,
                 f"Unsaved values:group\ngroup_estimation:{group_estimation}\nestimation:{last_estimation}\niterTimes{n}")
             print(f"error happened while calc reliability\n{e}")
 
+    # merge two attack method
     def mc_attack(
         self,
         iteration: int,
@@ -247,12 +249,8 @@ class fault_model:
         **kwargs,
     ) -> Union[list, float]:
         p /= self.bitlen
-        if self.p != p:
-            self.p = p
-            self.systhesis_error_calc()
-            self.PerturbationTable[-2] = self.synthesis_error
-            prop = np.array([1, 1, 1, 1, 1, 1])
-            self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
+        self.p = p
+        self.__emat_calc()
         if type != "weight":
             raise("Inject Type Error, emat only support attack on weight")
         inject_func = partial(
@@ -460,7 +458,7 @@ class fault_model:
         )
         self.input_shape.append(torch.tensor(output.shape[1:]).tolist())
 
-    def systhesis_error_calc(self) -> None:
+    def __emat_calc(self) -> None:
         p = list(self.bit_distribution_statistic()[5:9])
         p.reverse()
         denom = 0
@@ -468,6 +466,13 @@ class fault_model:
             exp = 2**i
             denom += (1 / 2**exp) * p[i]
         self.synthesis_error = 4 / denom
+        self.PerturbationTable[-2] = self.synthesis_error
+        prop = np.array([1, 1, 1, 1, 1, 1])
+        self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
+
+    def get_emat_single_func(self)->float:
+        self.__emat_calc()
+        return lambda num : num*random.choice(self.PerturbationTable)
 
     def stat_model(self, granularity: int = 1) -> None:
         torchstat.stat(self.model, self.input_shape, granularity)
