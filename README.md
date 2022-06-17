@@ -73,7 +73,7 @@ fault_model.emat_attack(10,1e-3)
 ```
 
 ## Contribution
-If you find🧐 any bugs or have🖐️ any suggestion, please tell us.
+If you found🧐 any bugs or have🖐️ any suggestions, please tell us.
 
 This repo is open to everyone wants to maintain together.
 

@@ -6,7 +6,7 @@ __all__ = [
     "monte_carlo",
     "emat",
     "get_result",
-    "normal_adaptive",
+    "sequence_lim_adaptive",
     "blank_hook",
     "zscore_dr_hook",
     "float_to_bin",
