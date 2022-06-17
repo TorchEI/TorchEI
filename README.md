@@ -1,6 +1,7 @@
 <div align="center">
-  <img src=".\assets\torchei.svg" alt="torchei_logo" align="center" style="width:30%;"  />
+  <img src="https://raw.githubusercontent.com/TorchEI/TorchEI/main/assets/torchei.svg" alt="torchei_logo" align="center" style="width:30%;"  />
 </div>
+
 
 <h1 style = "margin:0;" align="center">TorchEI⚡</h1>
 

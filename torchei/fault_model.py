@@ -2,7 +2,7 @@ from copy import deepcopy
 from math import log10 as lg
 from statistics import mean
 from time import monotonic_ns
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, OrderedDict, TypeVar, Union
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -10,6 +10,7 @@ import torchstat
 from functools import partial
 from .utils import *
 from random import randint
+from .utils import monte_carlo_hook
 
 __all__ = ["fault_model"]
 
@@ -23,6 +24,7 @@ default_layer_filter = [
 data_type = TypeVar("data_type")
 result_type = TypeVar("result_type")
 
+
 class fault_model:
     @torch.no_grad()
     def __init__(
@@ -31,7 +33,7 @@ class fault_model:
         input_data: data_type,
         infer_func: Callable[[data_type], result_type] = get_result,
         layer_filter: list = default_layer_filter,
-        to_cuda:bool = True,
+        to_cuda: bool = True,
     ) -> None:
         model.eval()
         if to_cuda and torch.cuda.is_available():
@@ -44,22 +46,21 @@ class fault_model:
         self.dtype = example.dtype
         self.device = example.device
         self.quant = (
-            True if self.dtype in [torch.qint8,
-                                   torch.int8, torch.int8] else False
+            True if self.dtype in [torch.qint8, torch.int8, torch.int8] else False
         )
         self.cuda = example.is_cuda
+        self.rng = np.random.Generator(np.random.PCG64DXSM())
         self.valid_data = input_data
         self.data_size = self.valid_data.shape[0] * self.valid_data.shape[1]
         self.infer = infer_func
         self.keys = []
-        self.handles = []
         self.bitlen = 8 if self.quant else 32
         self.ground_truth = infer_func(model, self.valid_data)
-        self.rng = np.random.Generator(np.random.PCG64DXSM())
         self.shapes = None
         self.zero_rate = []
         self.input_shape = []
         self.compute_amount = []
+        self.handles = []
         self.bit_dist = None
         self.synthesis_error = None
         self.p = None
@@ -95,7 +96,7 @@ class fault_model:
         self.shapes = [[*self.pure_dict[key].shape] for key in self.keys]
         self.layer_num = len(self.shapes)
 
-    def time_decorator(self, func):
+    def time_decorator(self, func) -> Callable[..., Any]:
         def wrapper(*args, **kw):
             s = monotonic_ns()
             result = func(*args, **kw)
@@ -105,73 +106,74 @@ class fault_model:
 
         return wrapper
 
+    def weight_ei(self, inject_func) -> None:
+        corrupt_dict = deepcopy(self.pure_dict)
+        inject_func(corrupt_dict, self.rng)
+        self.model.load_state_dict(corrupt_dict)
+
+    def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
+        self.clear_handles()
+        self.register_hook(partial(inject_hook, self.rng), type="forward_pre")
+
     @torch.no_grad()
-    def weight_ei(
+    def reliability_calc(
         self,
         iteration: int,
-        inject_func: Callable[[dict], None],
+        error_inject: Callable[[None], None],
         kalman: bool,
         adaptive: bool = False,
         **kwargs,
-    ):
+    ) -> Union[list, float]:
         if kwargs.get("time_count", True):
-            inject_func = self.time_decorator(inject_func)
+            self.time = 0
+            error_inject = self.time_decorator(error_inject)
         group_size = kwargs.get("group_size", 50)
         group_return = kwargs.get("group_return", False)
         group_estimation = []
         if adaptive:
             adaptive_func = kwargs.get("adaptive_func", normal_adaptive)
-            assert(group_size>0)
+            assert group_size > 0
         if kalman:
             init_size = kwargs.get("init_size", 1000)
-            assert (init_size % group_size == 0 and group_size)
+            assert init_size % group_size == 0 and group_size
             error = 0
             for iter in tqdm(range(init_size)):
-                corrupt_dict = deepcopy(self.pure_dict)
-                inject_func(corrupt_dict,self.rng)
-                self.model.load_state_dict(corrupt_dict)
+                error_inject()
                 corrupt_result = self.infer(self.model, self.valid_data)
                 error += torch.sum(corrupt_result != self.ground_truth)
                 if iter + 1 % group_size == 0:
-                    group_estimation.append(
-                        error / self.data_size / group_size)
+                    group_estimation.append(error / self.data_size / group_size)
                     error = 0
-            mea_uncer_r, estimation_x = torch.var_mean(
-                torch.tensor(group_estimation))
-            est_uncert_p = (
-                self.get_param_size() * self.p / init_size / 32 / group_size
-            )
+            mea_uncer_r, estimation_x = torch.var_mean(torch.tensor(group_estimation))
+            est_uncert_p = self.get_param_size() * self.p / init_size / 32 / group_size
             estimation = [estimation_x]
 
-        if locals().get('estimation') is None:
+        if locals().get("estimation") is None:
             estimation = [0]
         error = 0
         n = 0
         for iter in tqdm(range(iteration)):
-            corrupt_dict = deepcopy(self.pure_dict)
-            inject_func(corrupt_dict,self.rng)
-            self.model.load_state_dict(corrupt_dict)
+            error_inject()
             corrupt_result = self.infer(self.model, self.valid_data)
             error += torch.sum(corrupt_result != self.ground_truth)
-            if group_size:
-                if (iter + 1) % group_size == 0:
-                    n += 1
-                    z = error / self.data_size / group_size
-                    group_estimation.append(z)
-                    error = 0
-                    if (not kalman) and adaptive:
-                        if n == 2:
-                            estimation.pop(0)
-                        estimation.append(
-                            (n - 1) / n * estimation[-1] +
-                            1 / n * group_estimation[-1]
-                        )
+            if group_size and (iter + 1) % group_size == 0:
+                n += 1
+                z = error / self.data_size / group_size
+                group_estimation.append(z)
+                error = 0
+                if (not kalman) and adaptive:
+                    if n == 2:
+                        estimation.pop(0)
+                    estimation.append(
+                        (n - 1) / n * estimation[-1] + 1 / n * group_estimation[-1]
+                    )
 
             if kalman:
                 if iter + 1 % group_size == 0:
                     Kalman_Gain = est_uncert_p / (est_uncert_p + mea_uncer_r)
                     estimation.append(
-                        estimation[-1] + Kalman_Gain * (z - estimation[-1]))
+                        estimation[-1] + Kalman_Gain * (z - estimation[-1])
+                    )
                     est_uncert_p = est_uncert_p * (1 - Kalman_Gain)
 
             if adaptive:
@@ -185,23 +187,31 @@ class fault_model:
         elif group_size < iteration:
             return torch.tensor(group_estimation).mean()
         else:
-            return error/self.data_size/iteration
+            return error / self.data_size / iteration
 
     def mc_attack(
         self,
         iteration: int,
         p: float,
-        attack_func: Callable[..., float] = None,
+        attack_func: Callable[[float], float] = None,
         kalman: bool = False,
+        type="weight",
         **kwargs,
-    ):
+    ) -> Union[list, float]:
         if attack_func is None:
             attack_func = single_bit_flip
-        inject_func = partial(monte_carlo, attack_func, p, self.keys)
+        if type == "weight":
+            inject_func = partial(monte_carlo, attack_func, p, self.keys)
+            error_inject = partial(self.weight_ei, inject_func)
+        elif type == "neuron":
+            inject_func = partial(monte_carlo_hook, attack_func, p, self.keys)
+            error_inject = partial(self.neuron_ei, inject_func)
+        else:
+            raise ("Inject Type Error, you should select weight or neuron")
         self.p = p
-        return self.weight_ei(
+        return self.reliability_calc(
             iteration=iteration,
-            inject_func=inject_func,
+            error_inject=error_inject,
             kalman=kalman,
             **kwargs,
         )
@@ -211,8 +221,9 @@ class fault_model:
         iteration: int,
         p: float,
         kalman: bool = False,
+        type="weight",
         **kwargs,
-    ):
+    ) -> Union[list, float]:
         p /= self.bitlen
         if self.p != p:
             self.p = p
@@ -220,12 +231,14 @@ class fault_model:
             self.PerturbationTable[-2] = self.synthesis_error
             prop = np.array([1, 1, 1, 1, 1, 1])
             self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
+        if type != "weight":
+            raise ("Inject Type Error, emat only support attack on weight")
         inject_func = partial(
             emat, self.PerturbationTable, self.PropTable, self.device, self.keys
         )
-        return self.weight_ei(
+        return self.reliability_calc(
             iteration=iteration,
-            inject_func=inject_func,
+            error_inject=partial(self.weight_ei, inject_func),
             kalman=kalman,
             **kwargs,
         )
@@ -233,17 +246,16 @@ class fault_model:
     @torch.no_grad()
     def layer_single_attack(
         self, layer_iter: int, attack_func: Callable[[float], Any] = None
-    ):
+    ) -> list:
         if attack_func is None:
             attack_func = single_bit_flip
         result = []
         for key_id, key in enumerate(self.keys):
+            result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1)
-                                    for i in self.shapes[key_id]])
-                attack_result = attack_func(
-                    corrupt_dict[key][corrupt_idx].item())
+                corrupt_idx = tuple([randint(0, i - 1) for i in self.shapes[key_id]])
+                attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
                 if not (type(attack_result) is tuple):
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
@@ -251,8 +263,9 @@ class fault_model:
                     result.append(attack_result[1:])
                 self.model.load_state_dict(corrupt_dict)
                 corrupt_result = self.infer(self.model, self.valid_data)
-                result.append(torch.sum(corrupt_result !=
-                              self.ground_truth).item())
+                result[key_id].append(
+                    torch.sum(corrupt_result != self.ground_truth).item()
+                )
         return result
 
     def get_layer_shape(self) -> list:
@@ -313,15 +326,14 @@ class fault_model:
         nonzero = 1 - torch.tensor(self.zero_rate)
         sern = []
         input_size = (
-            self.input_shape[0][0] *
-            self.input_shape[0][1] * self.input_shape[0][2]
+            self.input_shape[0][0] * self.input_shape[0][1] * self.input_shape[0][2]
         )
         big_cnn = False
         k = 1 / 64
         if input_size > 200 * 200 * 3:
             big_cnn = True
         for i in range(layernum):
-            later_compute = sum(self.compute_amount[i + 1:])
+            later_compute = sum(self.compute_amount[i + 1 :])
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shapes[i]) != 2:
@@ -348,9 +360,6 @@ class fault_model:
             if i == 0 and big_cnn:
                 k = 1 / 64
         return sern
-
-    def neuron_fi(self):
-        pass
 
     def unpack_weight(self) -> torch.Tensor:
         vessel = torch.tensor([])
@@ -380,8 +389,7 @@ class fault_model:
             key = key.rsplit(".", 1)[0]
             module = model.get_submodule(key)
             if type == "forward_pre":
-                self.handles.append(
-                    module.register_forward_pre_hook(hook=hook))
+                self.handles.append(module.register_forward_pre_hook(hook=hook))
             elif type == "forward":
                 self.handles.append(module.register_forward_hook(hook=hook))
 
