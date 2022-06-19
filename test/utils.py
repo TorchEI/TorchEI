@@ -3,9 +3,6 @@ from torchei import fault_model
 from torchvision import models
 import torch
 import numpy as np
-import sys
-import os
-
 
 random.seed(100)
 np.random.seed(100)
