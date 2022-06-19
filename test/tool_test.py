@@ -1,5 +1,5 @@
 import torch
-from utils import get_fi, check_range
+from .utils import get_fi, check_range
 import numpy as np
 import unittest
 import random
@@ -32,7 +32,7 @@ class ToolTest(unittest.TestCase):
         return 1
 
     def test_synthesis_error(self):
-        self.fi.systhesis_error_calc()
+        self.fi.get_emat_single_func()
         self.assertTrue(check_range(self.fi.synthesis_error,8,12))
     
     def test_register_hook(self):
