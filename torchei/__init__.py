@@ -19,3 +19,4 @@ __all__ = [
     "int2twos_comp",
     "dic_max",
 ]
+version = "0.0.8"

@@ -114,8 +114,6 @@ class fault_model:
         inject_func(corrupt_dict, self.rng)
         self.model.load_state_dict(corrupt_dict)
 
-    # 易同：注入在运行阶段完成，只能检查错误数量，提取注入阶段，分为weightei和neuroei
-    # 中间的部分可以共享
     def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
         self.clear_handles()
         self.register_hook(partial(inject_hook, self.rng), type="forward_pre")
@@ -129,13 +127,19 @@ class fault_model:
         adaptive: bool = False,
         **kwargs,
     ) -> Union[list, float]:
+        """
+        group_size:      Divide in group or not, >0 means group and its group_size 
+        kalman:          Use Kalman Filter in estimating
+        adaptive:        Auto-Stop       
+        verbose_return:  Return a tuple of estimation, group estimation and group index or just latest estimation
+        """
         try:
             # all parameter should be exposed
             if kwargs.get("time_count", True):
                 self.time = 0
                 error_inject = self.time_decorator(error_inject)
             group_size = kwargs.get("group_size", 50)  # after change it to 0
-            group_return = kwargs.get("group_return", False)
+            verbose_return = kwargs.get("verbose_return", False)
             group_estimation = []
             if adaptive:
                 adaptive_func = kwargs.get(
@@ -195,18 +199,18 @@ class fault_model:
                         if adaptive_func(estimation):
                             break
 
-            if group_return:
-                return locals().get("estimation",None), group_estimation, n
+            if verbose_return:
+                return estimation, group_estimation, n
             elif adaptive or kalman:
                 return estimation[-1].item()
-            elif group_size:
+            elif n!=0:
                 return torch.tensor(group_estimation).mean()
             else:
                 return (error/self.data_size/iteration).item()
 
         except Exception as e:
             logging.error(f"error happened while calc reliability\n{e}")
-            last_estimation = locals().get("estimation", [None])[-1]
+            last_estimation = estimation[-1]
             logging.log(5,
                 f"Unsaved values:group\ngroup_estimation:{group_estimation}\nestimation:{last_estimation}\niterTimes{n}")
             print(f"error happened while calc reliability\n{e}")
@@ -265,7 +269,7 @@ class fault_model:
 
     @torch.no_grad()
     def layer_single_attack(
-        self, layer_iter: int, attack_func: Callable[[float], Any] = None
+        self, layer_iter: int, attack_func: Callable[[float], Any] = None, error_rate = True
     ) -> list:
         if attack_func is None:
             attack_func = single_bit_flip
@@ -281,12 +285,16 @@ class fault_model:
                 if not (type(attack_result) is tuple):
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
+                    if error_rate:
+                        raise("If you need verbose info, you should calc error rate yourself")
                     corrupt_dict[key][corrupt_idx] = attack_result[0]
                     result.append(attack_result[1:])
                 self.model.load_state_dict(corrupt_dict)
                 corrupt_result = self.infer(self.model, self.valid_data)
                 result[key_id].append(torch.sum(corrupt_result !=
                                                 self.ground_truth).item())
+        if error_rate:
+            return [sum(i)/self.data_size/layer_iter for i in result]
         return result
 
     def get_layer_shape(self) -> list:
@@ -467,12 +475,14 @@ class fault_model:
             denom += (1 / 2**exp) * p[i]
         self.synthesis_error = 4 / denom
         self.PerturbationTable[-2] = self.synthesis_error
-        prop = np.array([1, 1, 1, 1, 1, 1])
-        self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
+        if self.p is not None:
+            prop = np.array([1, 1, 1, 1, 1, 1])
+            self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
 
-    def get_emat_single_func(self)->float:
+    def get_emat_single_func(self)->Callable[[float],float]:
         self.__emat_calc()
-        return lambda num : num*random.choice(self.PerturbationTable)
+        return lambda num : num*torch.tensor(random.choice(self.PerturbationTable[:-1]),dtype = torch.float64) if random.random() < 6/32 else num
+
 
     def stat_model(self, granularity: int = 1) -> None:
         torchstat.stat(self.model, self.input_shape, granularity)
