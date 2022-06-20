@@ -448,14 +448,17 @@ class fault_model:
             points.append(max_point + i * interval)
         return points
 
-    def relu6_protection(self, model: torch.nn.Module = None) -> None:
+    def relu6_protection(self, model: torch.nn.Module = None, type = (torch.nn.ReLU)) -> None:
+        '''
+        Warning: this will lower model's precision when no fault happening
+        '''
         if model is None:
             model = self.model
         for n, module in model.named_children():
             if len(list(module.children())) > 0:
                 self.relu6_protection(module)
 
-            if isinstance(module, (torch.nn.ReLU, torch.nn.Sigmoid, torch.nn.Tanh)):
+            if isinstance(module, type):
                 setattr(model, n, torch.nn.ReLU6())
 
     def __save_layer_info_hook(
