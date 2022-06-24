@@ -5,7 +5,26 @@
 
 <h1 style = "margin:0;" align="center">TorchEI⚡</h1>
 
-<div align = "center" style="font-weight: bold;"><a href="#introduction">Intro</a> ● <a href="#quick-example">Usage</a> ● <a href="https://TorchEI.github.com.io/TorchEI/">Doc</a>  ● <a href="#citation">Cite</a> ● <a href="#contribution">Contribution</a> ● <a href="#license">License</a></div>
+<div align = "center" style="font-weight: bold;"><a href="#introduction">Intro</a> ● <a href="#quick-example">Usage</a> ● <a href="https://TorchEI.github.com.io/TorchEI/">Doc</a>  ● <a href="#citation">Cite</a> ● <a href="#contribution" >Contribution</a> ● <a href="#license">License</a></div>
+
+<div align = "center">
+<a href="https://pypi.org/project/torchei/"  target=”_blank”>
+  <img src="https://img.shields.io/pypi/v/torchei?color=B02020" alt="Pypi"></a>
+<a href="https://codecov.io/gh/TorchEI/TorchEI" > 
+ <img src="https://codecov.io/gh/TorchEI/TorchEI/branch/main/graph/badge.svg?token=0ADLQFHLCJ"/></a> 
+ <img src="https://img.shields.io/codefactor/grade/github/torchei/torchei"/>   
+<a href="https://pypi.org/project/torchei/"  target=”_blank”>  
+<img src="https://static.pepy.tech/personalized-badge/torchei?period=total&units=international_system&left_color=grey&right_color=blue&left_text=downloads" alt="Downloads"></a> 
+<a href="#contribution">
+  <img src="https://img.shields.io/github/license/torchei/torchei" alt="License">
+</a>
+</div>
+
+
+
+
+![test](https://github.com/torchei/torchei/actions/workflows/pytest-cov.yml/badge.svg?text=downloads)
+
 
 
 ## Introduction
@@ -72,7 +91,7 @@ fault_model.outlierDR_protection()
 fault_model.emat_attack(10,1e-3)
 ```
 
-## Contribution
+## Contribution![contributors](https://img.shields.io/github/contributors/torchei/torchei?color=orangered)
 If you found🧐 any bugs or have🖐️ any suggestions, please tell us.
 
 This repo is open to everyone wants to maintain together.

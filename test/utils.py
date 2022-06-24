@@ -16,4 +16,4 @@ def get_fi() -> fault_model:
 
 
 def check_range(x, l=0.01, r=0.9, rate=1) -> bool:
-    return x > l*rate and x < r*rate
+    return x > l * rate and x < r * rate
