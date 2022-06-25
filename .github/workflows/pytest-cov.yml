@@ -5,12 +5,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.7", "3.9"]
+        os: [ubuntu-latest]
+        python: ["3.7", "3.10"]
     env:
       OS: ${{ matrix.os }}
       PYTHON: ${{matrix.python}}
     steps:
+    - name: Delete previous runs
+      uses: n1hility/cancel-previous-runs@v2
     - uses: actions/checkout@master
     - name: Setup Python
       uses: actions/setup-python@master
