@@ -40,6 +40,7 @@ result_type = TypeVar("result_type")
 
 class fault_model:
     """Fault model in `torchei`"""
+
     @torch.no_grad()
     def __init__(
         self,
