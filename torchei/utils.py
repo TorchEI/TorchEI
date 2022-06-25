@@ -105,10 +105,6 @@ def sequence_lim_adaptive(
 
 
 def blank_hook(module: torch.nn.Module, data: tuple, result: torch.tensor) -> None:
-    data = data[0]
-    weight = module.weight
-    weight_num = weight.numel()
-    size = data.numel()
     pass
 
 
@@ -132,12 +128,12 @@ def monte_carlo_hook(
     keys: list,
     rng: np.random.Generator,
     module: torch.nn.Module,
-    input: tuple,
+    input_data: tuple,
 ) -> None:
-    input: torch.tensor = input[0].flatten()
-    for i in range(len(input)):
+    input_data: torch.tensor = input_data[0].flatten()
+    for i in range(len(input_data)):
         if rng.random() < p:
-            input[i] = attack_func(input[i])
+            input_data[i] = attack_func(input_data[i])
 
 
 def float_to_bin(num: float) -> list:
@@ -200,4 +196,5 @@ def pytorchfi_bit_flip_31(data: float, location: tuple):
 
 
 def dic_max(dic: OrderedDict) -> float:
+    """return the max value of a dictionary"""
     return max([max(i) for i in dic.values()])
