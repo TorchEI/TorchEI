@@ -41,6 +41,15 @@ class AttackTest(unittest.TestCase):
         def t(_):
             return True
 
+        result = fi.emat_attack(
+            10,
+            1e-5,
+            group_size=2,
+            adaptive=True,
+            adaptive_func=f,
+        )
+        self.assertIsInstance(result, float)
+
         # test adaptive
         result = fi.emat_attack(
             10,

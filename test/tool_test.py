@@ -40,3 +40,8 @@ class ToolTest(unittest.TestCase):
     def test_register_hook(self):
         self.fi.register_hook()
         self.assertEqual(len(self.fi.handles), len(self.fi.keys))
+
+    def test_delimit(self):
+        limit_points = self.fi.delimit()
+        param_size = self.fi.get_param_size()
+        self.assertAlmostEqual(10 ** (-limit_points[0]) * param_size, 100, delta=30)

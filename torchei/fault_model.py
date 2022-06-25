@@ -230,7 +230,7 @@ class fault_model:
             if adaptive or kalman:
                 return estimation[-1].item()
             if n != 0:
-                return torch.tensor(group_estimation).mean()
+                return torch.tensor(group_estimation).mean().item()
             return (error / self.data_size / iteration).item()
 
         except Exception as e:

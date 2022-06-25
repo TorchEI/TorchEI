@@ -19,8 +19,6 @@ __all__ = [
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
-    "twos_comp2int",
-    "int2twos_comp",
     "dic_max",
     "monte_carlo_hook",
 ]
@@ -174,25 +172,6 @@ def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float
 
 def single_bit_flip_verbose(num: float, bit: int = None) -> float:
     return single_bit_flip(num, bit, verbose=True)
-
-
-def twos_comp2int(n: int, bits: list) -> list:
-    s = bin(n & int("1" * bits, 2))[2:]
-    return ("{0:0>%s}" % (bits)).format(s)
-
-
-def int2twos_comp(val: int, bits: list) -> float:
-    if (val & (1 << (bits - 1))) != 0:
-        val = val - (1 << bits)
-    return val
-
-
-def pytorchfi_bit_flip(data: float, location: tuple):
-    return single_bit_flip(data[location].item())
-
-
-def pytorchfi_bit_flip_31(data: float, location: tuple):
-    return single_bit_flip_31(data[location].item())
 
 
 def dic_max(dic: OrderedDict) -> float:

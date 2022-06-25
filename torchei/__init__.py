@@ -1,6 +1,8 @@
 from .fault_model import fault_model
 from .utils import *
 
+version = "0.0.8"
+
 __all__ = [
     "fault_model",
     "monte_carlo",
@@ -15,8 +17,6 @@ __all__ = [
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
-    "twos_comp2int",
-    "int2twos_comp",
     "dic_max",
+    "version",
 ]
-version = "0.0.9"
