@@ -60,10 +60,7 @@ class fault_model:
         example = [*self.pure_dict.values()][0]
         self.dtype = example.dtype
         self.device = example.device
-        self.quant = (
-            True if self.dtype in [torch.qint8,
-                                   torch.int8, torch.int8] else False
-        )
+        self.quant = self.dtype in [torch.qint8, torch.int8, torch.int8]
         self.cuda = example.is_cuda
         self.rng = np.random.Generator(np.random.PCG64DXSM())
         self.valid_data = input_data
