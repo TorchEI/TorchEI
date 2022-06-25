@@ -13,6 +13,8 @@ jobs:
     steps:
     - name: Delete previous runs
       uses: n1hility/cancel-previous-runs@v2
+      with: 
+          token: ${{ secrets.REPO_TOKEN }}
     - uses: actions/checkout@master
     - name: Setup Python
       uses: actions/setup-python@master
