@@ -96,7 +96,8 @@ def sequence_lim_adaptive(
     if len(estimation) > times:
         return all(
             not (
-                torch.abs((estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
+                torch.abs(
+                    (estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
                 > deviation
             )
             for i in range(1, times + 1)
@@ -165,7 +166,7 @@ def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float
             insert_bit = "1"
         else:
             print("Error !!!")
-        bits = bits[0:bit] + insert_bit + bits[bit + 1 :]
+        bits = bits[0:bit] + insert_bit + bits[bit + 1:]
         if verbose:
             return bin_to_float(bits), bit, insert_bit
         return bin_to_float(bits)

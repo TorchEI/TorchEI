@@ -28,7 +28,8 @@ class ToolTest(unittest.TestCase):
 
         span = random.randrange(0, 5)
         hibernate(span)
-        self.assertTrue(check_range(self.fi.time, span - 0.1, span + 0.1, 1000))
+        self.assertTrue(check_range(
+            self.fi.time, span - 0.1, span + 0.1, 1000))
 
     def test_change_layer_filter(self):
         return 1
