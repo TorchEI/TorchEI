@@ -45,9 +45,11 @@ class fault_model:
         model: torch.nn.Module,
         input_data: data_type,
         infer_func: Callable[[data_type], result_type] = get_result,
-        layer_filter: list = default_layer_filter,
+        layer_filter: list = None,
         to_cuda: bool = True,
     ) -> None:
+        if layer_filter is None:
+            layer_filter = default_layer_filter
         model.eval()
         if to_cuda and torch.cuda.is_available():
             model.to("cuda")
