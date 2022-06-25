@@ -163,14 +163,16 @@ class fault_model:
             if adaptive:
                 adaptive_func = kwargs.get(
                     "adaptive_func", sequence_lim_adaptive)
-                assert group_size > 0
+                if group_size <= 0:
+                    raise AssertionError
             if kalman:
                 init_size = kwargs.get("init_size", 1000)
-                assert (
+                if not (
                     init_size % group_size == 0
                     and init_size // group_size > 1
                     and group_size > 1
-                )
+                ):
+                    raise AssertionError
                 error = 0
                 for iter in tqdm(range(init_size)):
                     error_inject()
@@ -372,7 +374,8 @@ class fault_model:
                 )
             elif len(self.shapes[i]) == 2:
                 p = self.input_shape[i][0]
-                assert p == self.shapes[i][1]
+                if p != self.shapes[i][1]:
+                    raise AssertionError
                 self.compute_amount.append(p)
         self.clear_handles()
 
@@ -399,7 +402,8 @@ class fault_model:
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shapes[i]) != 2:
-                    assert output_class != None
+                    if output_class == None:
+                        raise AssertionError
                     p_next = output_class
                 else:
                     p_next = 1 / self.shapes[i][0]
