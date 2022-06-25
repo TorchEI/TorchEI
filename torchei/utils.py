@@ -26,35 +26,21 @@ __all__ = [
 ]
 
 
-def emat(
-    Per: list,
-    Prop: list,
-    device: str,
-    keys: list,
-    dic: OrderedDict,
-    rng: np.random.Generator,
-    *args
-) -> None:
+def emat(Per: list, Prop: list, device: str, keys: list, dic: OrderedDict,
+         rng: np.random.Generator, *args) -> None:
     for key in keys:
         inject_map = rng.choice(Per, dic[key].shape, p=Prop)
         dic[key] *= torch.tensor(inject_map, device=device)
 
 
-def monte_carlo(
-    attack_func: Callable[[float], float],
-    p: float,
-    keys: list,
-    dic: OrderedDict,
-    rng: np.random.Generator,
-    *args
-) -> None:
+def monte_carlo(attack_func: Callable[[float], float], p: float, keys: list,
+                dic: OrderedDict, rng: np.random.Generator, *args) -> None:
     for key in keys:
         weight_matrix = dic[key].flatten()
         for weight_idx in range(len(weight_matrix)):
             if rng.random() < p:
                 weight_matrix[weight_idx] = attack_func(
-                    weight_matrix[weight_idx].item()
-                )
+                    weight_matrix[weight_idx].item())
 
 
 @torch.no_grad()
@@ -90,21 +76,18 @@ def get_result(
     return result
 
 
-def sequence_lim_adaptive(
-    estimation: list, times: int = 30, deviation: float = 0.01
-) -> bool:
+def sequence_lim_adaptive(estimation: list,
+                          times: int = 30,
+                          deviation: float = 0.01) -> bool:
     if len(estimation) > times:
-        return all(
-            not (
-                torch.abs((estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
-                > deviation
-            )
-            for i in range(1, times + 1)
-        )
+        return all(not (torch.abs((estimation[-i] - estimation[-i - 1])) /
+                        estimation[-i - 1] > deviation)
+                   for i in range(1, times + 1))
     return False
 
 
-def blank_hook(module: torch.nn.Module, data: tuple, result: torch.tensor) -> None:
+def blank_hook(module: torch.nn.Module, data: tuple,
+               result: torch.tensor) -> None:
     data = data[0]
     weight = module.weight
     weight_num = weight.numel()
@@ -156,7 +139,9 @@ def single_bit_flip_31(num: float) -> float:
     return single_bit_flip(num, 1)
 
 
-def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float:
+def single_bit_flip(num: float,
+                    bit: int = None,
+                    verbose: bool = False) -> float:
     if bit is None:
         bit = randint(0, 31)
     if isinstance(num, torch.Tensor):
@@ -169,7 +154,7 @@ def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float
             insert_bit = "1"
         else:
             print("Error !!!")
-        bits = bits[0:bit] + insert_bit + bits[bit + 1 :]
+        bits = bits[0:bit] + insert_bit + bits[bit + 1:]
         if verbose:
             return bin_to_float(bits), bit, insert_bit
         return bin_to_float(bits)

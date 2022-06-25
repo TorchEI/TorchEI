@@ -39,6 +39,7 @@ result_type = TypeVar("result_type")
 
 
 class fault_model:
+
     @torch.no_grad()
     def __init__(
         self,
@@ -130,7 +131,9 @@ class fault_model:
         inject_func(corrupt_dict, self.rng)
         self.model.load_state_dict(corrupt_dict)
 
-    def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
+    def neuron_ei(
+            self, inject_hook: Callable[[torch.nn.Module, tuple],
+                                        None]) -> None:
         self.clear_handles()
         self.register_hook(partial(inject_hook, self.rng), type="forward_pre")
 
@@ -158,16 +161,14 @@ class fault_model:
             verbose_return = kwargs.get("verbose_return", False)
             group_estimation = []
             if adaptive:
-                adaptive_func = kwargs.get("adaptive_func", sequence_lim_adaptive)
+                adaptive_func = kwargs.get("adaptive_func",
+                                           sequence_lim_adaptive)
                 if group_size <= 0:
                     raise AssertionError
             if kalman:
                 init_size = kwargs.get("init_size", 1000)
-                if not (
-                    init_size % group_size == 0
-                    and init_size // group_size > 1
-                    and group_size > 1
-                ):
+                if not (init_size % group_size == 0
+                        and init_size // group_size > 1 and group_size > 1):
                     raise AssertionError
                 error = 0
                 for iter in tqdm(range(init_size)):
@@ -175,15 +176,14 @@ class fault_model:
                     corrupt_result = self.infer(self.model, self.valid_data)
                     error += torch.sum(corrupt_result != self.ground_truth)
                     if (iter + 1) % group_size == 0:
-                        group_estimation.append(error / self.data_size / group_size)
+                        group_estimation.append(error / self.data_size /
+                                                group_size)
                         error = 0
                         # robust estimation 还没加上去
                 mea_uncer_r, estimation_x = torch.var_mean(
-                    torch.tensor(group_estimation)
-                )
-                est_uncert_p = (
-                    self.get_param_size() * self.p / init_size / 32 / group_size
-                )
+                    torch.tensor(group_estimation))
+                est_uncert_p = (self.get_param_size() * self.p / init_size /
+                                32 / group_size)
                 estimation = [estimation_x]
 
             error = 0
@@ -202,20 +202,18 @@ class fault_model:
                     error = 0
 
                     if kalman:
-                        Kalman_Gain = est_uncert_p / (est_uncert_p + mea_uncer_r)
-                        estimation.append(
-                            estimation[-1] + Kalman_Gain * (z - estimation[-1])
-                        )
+                        Kalman_Gain = est_uncert_p / (est_uncert_p +
+                                                      mea_uncer_r)
+                        estimation.append(estimation[-1] + Kalman_Gain *
+                                          (z - estimation[-1]))
                         est_uncert_p = est_uncert_p * (1 - Kalman_Gain)
 
                     if adaptive:
                         if not kalman:
                             if n == 2:
                                 estimation.pop(0)
-                            estimation.append(
-                                (n - 1) / n * estimation[-1]
-                                + 1 / n * group_estimation[-1]
-                            )
+                            estimation.append((n - 1) / n * estimation[-1] +
+                                              1 / n * group_estimation[-1])
 
                         if adaptive_func(estimation):
                             break
@@ -278,9 +276,8 @@ class fault_model:
         self.__emat_calc()
         if type != "weight":
             raise ("Inject Type Error, emat only support attack on weight")
-        inject_func = partial(
-            emat, self.PerturbationTable, self.PropTable, self.device, self.keys
-        )
+        inject_func = partial(emat, self.PerturbationTable, self.PropTable,
+                              self.device, self.keys)
         return self.reliability_calc(
             iteration=iteration,
             error_inject=partial(self.weight_ei, inject_func),
@@ -302,8 +299,10 @@ class fault_model:
             result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1) for i in self.shapes[key_id]])
-                attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
+                corrupt_idx = tuple(
+                    [randint(0, i - 1) for i in self.shapes[key_id]])
+                attack_result = attack_func(
+                    corrupt_dict[key][corrupt_idx].item())
                 if not (type(attack_result) is tuple):
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
@@ -316,8 +315,7 @@ class fault_model:
                 self.model.load_state_dict(corrupt_dict)
                 corrupt_result = self.infer(self.model, self.valid_data)
                 result[key_id].append(
-                    torch.sum(corrupt_result != self.ground_truth).item()
-                )
+                    torch.sum(corrupt_result != self.ground_truth).item())
         if error_rate:
             return [sum(i) / self.data_size / layer_iter for i in result]
         return result
@@ -360,9 +358,8 @@ class fault_model:
                 s = self.shapes[i][-1]
                 n = self.input_shape[i][0]
                 m = self.shapes[i][0]
-                self.compute_amount.append(
-                    self.input_shape[i + 1][1] ** 2 * s * s * n * m
-                )
+                self.compute_amount.append(self.input_shape[i + 1][1]**2 * s *
+                                           s * n * m)
             elif len(self.shapes[i]) == 2:
                 p = self.input_shape[i][0]
                 if p != self.shapes[i][1]:
@@ -380,15 +377,14 @@ class fault_model:
         layernum = len(self.shapes)
         nonzero = 1 - torch.tensor(self.zero_rate)
         sern = []
-        input_size = (
-            self.input_shape[0][0] * self.input_shape[0][1] * self.input_shape[0][2]
-        )
+        input_size = (self.input_shape[0][0] * self.input_shape[0][1] *
+                      self.input_shape[0][2])
         big_cnn = False
         k = 1 / 64
         if input_size > 200 * 200 * 3:
             big_cnn = True
         for i in range(layernum):
-            later_compute = sum(self.compute_amount[i + 1 :])
+            later_compute = sum(self.compute_amount[i + 1:])
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shapes[i]) != 2:
@@ -402,17 +398,9 @@ class fault_model:
             if i == 0 and big_cnn:
                 k = 1 / 32
             sern.append(
-                k
-                * (
-                    nonzero[i]
-                    * self.compute_amount[i]
-                    * (1 + p_next)
-                    / 2
-                    / self.shapes[i][0]
-                    + later_compute
-                )
-                / now_compute
-            )
+                k * (nonzero[i] * self.compute_amount[i] *
+                     (1 + p_next) / 2 / self.shapes[i][0] + later_compute) /
+                now_compute)
             if i == 0 and big_cnn:
                 k = 1 / 64
         return sern
@@ -437,15 +425,16 @@ class fault_model:
             self.bit_dist = bit_distri / 10000.0
         return self.bit_dist
 
-    def register_hook(
-        self, hook: Callable[..., None] = blank_hook, type="forward"
-    ) -> None:
+    def register_hook(self,
+                      hook: Callable[..., None] = blank_hook,
+                      type="forward") -> None:
         model = self.model
         for key in self.keys:
             key = key.rsplit(".", 1)[0]
             module = model.get_submodule(key)
             if type == "forward_pre":
-                self.handles.append(module.register_forward_pre_hook(hook=hook))
+                self.handles.append(
+                    module.register_forward_pre_hook(hook=hook))
             elif type == "forward":
                 self.handles.append(module.register_forward_hook(hook=hook))
 
@@ -457,9 +446,10 @@ class fault_model:
             i.remove()
         self.handles = []
 
-    def delimit(
-        self, num_points: int = 5, high: int = 100, interval: float = 0.5
-    ) -> list:
+    def delimit(self,
+                num_points: int = 5,
+                high: int = 100,
+                interval: float = 0.5) -> list:
         param_size = self.get_param_size()
         max_point = np.double(-lg((high / param_size)))
         manti = max_point % 0.5
@@ -473,9 +463,9 @@ class fault_model:
             points.append(max_point + i * interval)
         return points
 
-    def relu6_protection(
-        self, model: torch.nn.Module = None, type=(torch.nn.ReLU)
-    ) -> None:
+    def relu6_protection(self,
+                         model: torch.nn.Module = None,
+                         type=(torch.nn.ReLU)) -> None:
         """Warning:
         this will lower model's precision when no fault happening
         """
@@ -488,12 +478,11 @@ class fault_model:
             if isinstance(module, type):
                 setattr(model, n, torch.nn.ReLU6())
 
-    def __save_layer_info_hook(
-        self, model: torch.nn.Module, input_val: torch.Tensor, output: torch.Tensor
-    ) -> None:
+    def __save_layer_info_hook(self, model: torch.nn.Module,
+                               input_val: torch.Tensor,
+                               output: torch.Tensor) -> None:
         self.zero_rate.append(
-            (torch.sum(input_val[0] == 0) / input_val[0].numel()).item()
-        )
+            (torch.sum(input_val[0] == 0) / input_val[0].numel()).item())
         self.input_shape.append(torch.tensor(output.shape[1:]).tolist())
 
     def __emat_calc(self) -> None:
@@ -511,14 +500,9 @@ class fault_model:
 
     def get_emat_single_func(self) -> Callable[[float], float]:
         self.__emat_calc()
-        return (
-            lambda num: num
-            * torch.tensor(
-                random.choice(self.PerturbationTable[:-1]), dtype=torch.float64
-            )
-            if random.random() < 6 / 32
-            else num
-        )
+        return (lambda num: num * torch.tensor(
+            random.choice(self.PerturbationTable[:-1]), dtype=torch.float64)
+            if random.random() < 6 / 32 else num)
 
     def stat_model(self, granularity: int = 1) -> None:
         torchstat.stat(self.model, self.input_shape, granularity)
