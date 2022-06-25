@@ -102,8 +102,7 @@ def sequence_lim_adaptive(
             ):
                 return False
         return True
-    else:
-        return False
+    return False
 
 
 def blank_hook(module: torch.nn.Module, data: tuple, result: torch.tensor) -> None:
@@ -175,8 +174,7 @@ def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float
         if verbose:
             return bin_to_float(bits), bit, insert_bit
         return bin_to_float(bits)
-    else:
-        raise TypeError("Error! You should input tensor or float!")
+    raise TypeError("Error! You should input tensor or float!")
 
 
 def single_bit_flip_verbose(num: float, bit: int = None) -> float:
