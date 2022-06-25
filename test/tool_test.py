@@ -1,10 +1,11 @@
-import torch
-from .utils import get_fi, check_range
-import numpy as np
-import unittest
 import random
+import unittest
 from time import sleep
 
+import numpy as np
+import torch
+
+from .utils import check_range, get_fi
 
 random.seed(100)
 np.random.seed(100)
@@ -27,7 +28,8 @@ class ToolTest(unittest.TestCase):
 
         span = random.randrange(0, 5)
         hibernate(span)
-        self.assertTrue(check_range(self.fi.time, span - 0.1, span + 0.1, 1000))
+        self.assertTrue(check_range(
+            self.fi.time, span - 0.1, span + 0.1, 1000))
 
     def test_change_layer_filter(self):
         return 1
