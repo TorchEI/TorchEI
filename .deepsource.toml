@@ -15,10 +15,6 @@ enabled = true
 name = "isort"
 enabled = true
 
-[[transformers]]
-name = "autopep8"
-enabled = true
-
-[[transformers]]
-name = "yapf"
-enabled = true
+test_patterns = [
+  "test/**"
+]

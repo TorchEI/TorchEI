@@ -39,6 +39,8 @@ result_type = TypeVar("result_type")
 
 
 class fault_model:
+    """Fault model in `torchei`"""
+
     @torch.no_grad()
     def __init__(
         self,
@@ -98,16 +100,19 @@ class fault_model:
         must contain all,must contain one of,can't contain,least dimensions of layer's weight:
         """
         for key in [*self.pure_dict.keys()]:
+            flag = [True, False, True]
             for must_contain in layer_filter[0]:
-                if not must_contain in key:
-                    break
+                if must_contain not in key:
+                    flag[0] = False
             for contain_one in layer_filter[1]:
                 if contain_one in key:
+                    flag[1] = True
                     break
             for dont_contain in layer_filter[2]:
                 if dont_contain in key:
+                    flag[2] = False
                     break
-            if len(self.pure_dict[key].shape) >= layer_filter[-1]:
+            if all(flag) and len(self.pure_dict[key].shape) >= layer_filter[-1]:
                 self.keys.append(key)
 
         self.shapes = [[*self.pure_dict[key].shape] for key in self.keys]
@@ -132,7 +137,7 @@ class fault_model:
 
     def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
         self.clear_handles()
-        self.register_hook(partial(inject_hook, self.rng), type="forward_pre")
+        self.register_hook(partial(inject_hook, self.rng), hook_type="forward_pre")
 
     @torch.no_grad()
     def reliability_calc(
@@ -147,7 +152,7 @@ class fault_model:
         group_size:      Divide in group or not, >0 means group and its group_size
         kalman:          Use Kalman Filter in estimating
         adaptive:        Auto-Stop
-        verbose_return:  Return a tuple of estimation, group estimation and group index or just latest estimation
+        verbose_return:  return (estimation, group estimation, group index)
         """
         try:
             # all parameter should be exposed
@@ -170,11 +175,11 @@ class fault_model:
                 ):
                     raise AssertionError
                 error = 0
-                for iter in tqdm(range(init_size)):
+                for iter_times in tqdm(range(init_size)):
                     error_inject()
                     corrupt_result = self.infer(self.model, self.valid_data)
                     error += torch.sum(corrupt_result != self.ground_truth)
-                    if (iter + 1) % group_size == 0:
+                    if (iter_times + 1) % group_size == 0:
                         group_estimation.append(error / self.data_size / group_size)
                         error = 0
                         # robust estimation 还没加上去
@@ -191,11 +196,11 @@ class fault_model:
             if locals().get("estimation") is None:
                 estimation = [0]
 
-            for iter in tqdm(range(iteration)):
+            for iter_times in tqdm(range(iteration)):
                 error_inject()
                 corrupt_result = self.infer(self.model, self.valid_data)
                 error += torch.sum(corrupt_result != self.ground_truth)
-                if group_size and (iter + 1) % group_size == 0:
+                if group_size and (iter_times + 1) % group_size == 0:
                     n += 1
                     z = error / self.data_size / group_size
                     group_estimation.append(z)
@@ -237,26 +242,25 @@ class fault_model:
             )
             print(f"error happened while calc reliability\n{e}")
 
-    # merge two attack method
     def mc_attack(
         self,
         iteration: int,
         p: float,
         attack_func: Callable[[float], float] = None,
         kalman: bool = False,
-        type="weight",
+        attack_type="weight",
         **kwargs,
     ) -> Union[list, float]:
         if attack_func is None:
             attack_func = single_bit_flip
-        if type == "weight":
+        if attack_type == "weight":
             inject_func = partial(monte_carlo, attack_func, p, self.keys)
             error_inject = partial(self.weight_ei, inject_func)
-        elif type == "neuron":
+        elif attack_type == "neuron":
             inject_func = partial(monte_carlo_hook, attack_func, p, self.keys)
             error_inject = partial(self.neuron_ei, inject_func)
         else:
-            raise ("Inject Type Error, you should select weight or neuron")
+            raise "Inject Type Error, you should select weight or neuron"
         self.p = p
         return self.reliability_calc(
             iteration=iteration,
@@ -270,14 +274,14 @@ class fault_model:
         iteration: int,
         p: float,
         kalman: bool = False,
-        type="weight",
+        attack_type="weight",
         **kwargs,
     ) -> Union[list, float]:
         p /= self.bitlen
         self.p = p
         self.__emat_calc()
-        if type != "weight":
-            raise ("Inject Type Error, emat only support attack on weight")
+        if attack_type != "weight":
+            raise "Inject Type Error, emat only support attack on weight"
         inject_func = partial(
             emat, self.PerturbationTable, self.PropTable, self.device, self.keys
         )
@@ -304,13 +308,11 @@ class fault_model:
                 corrupt_dict = deepcopy(self.pure_dict)
                 corrupt_idx = tuple([randint(0, i - 1) for i in self.shapes[key_id]])
                 attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
-                if not (type(attack_result) is tuple):
+                if not type(attack_result) is tuple:
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
                     if error_rate:
-                        raise (
-                            "If you need verbose info, you should calc error rate yourself"
-                        )
+                        raise "If you need verbose info, you should calc error rate yourself"
                     corrupt_dict[key][corrupt_idx] = attack_result[0]
                     result.append(attack_result[1:])
                 self.model.load_state_dict(corrupt_dict)
@@ -326,6 +328,7 @@ class fault_model:
         return self.shapes
 
     def get_param_size(self) -> int:
+        """Calculate the total parameter size of the model"""
         param_size = 0
         for i in self.shapes:
             temp = 1
@@ -339,6 +342,7 @@ class fault_model:
 
     @torch.no_grad()
     def calc_detail_info(self) -> None:
+        """An auxiliary function for `sern_calc` to calculate the detail information of the model"""
         self.register_hook(self.__save_layer_info_hook)
         self.infer(self.model, self.valid_data)
 
@@ -375,6 +379,7 @@ class fault_model:
 
     @torch.no_grad()
     def sern_calc(self, output_class: int = None) -> list:
+        """Calculating model's sbf error rate using sern algorithm"""
         if self.compute_amount == []:
             self.calc_detail_info()
         layernum = len(self.shapes)
@@ -418,12 +423,14 @@ class fault_model:
         return sern
 
     def unpack_weight(self) -> torch.Tensor:
+        """Unpack the weight of the model to one tensor"""
         vessel = torch.tensor([])
         for i in self.keys:
             vessel = torch.cat((vessel, self.pure_dict[i].flatten().cpu()))
         return vessel
 
     def bit_distribution_statistic(self) -> list:
+        """An auxiliary function for `emat_attack` to calculate the bit distribution of the model"""
         if self.bit_dist is None:
             weight = self.unpack_weight()
             weight = weight.numpy()
@@ -438,19 +445,21 @@ class fault_model:
         return self.bit_dist
 
     def register_hook(
-        self, hook: Callable[..., None] = blank_hook, type="forward"
+        self, hook: Callable[..., None] = blank_hook, hook_type="forward"
     ) -> None:
+        """Register a specified type hook function in specified layer"""
         model = self.model
         for key in self.keys:
             key = key.rsplit(".", 1)[0]
             module = model.get_submodule(key)
-            if type == "forward_pre":
+            if hook_type == "forward_pre":
                 self.handles.append(module.register_forward_pre_hook(hook=hook))
-            elif type == "forward":
+            elif hook_type == "forward":
                 self.handles.append(module.register_forward_hook(hook=hook))
 
     def outlierDR_protection(self) -> None:
-        self.register_hook(zscore_dr_hook, type="forward_pre")
+        """Protect the model from bit flip errors"""
+        self.register_hook(zscore_dr_hook, hook_type="forward_pre")
 
     def clear_handles(self) -> None:
         for i in self.handles:
@@ -460,6 +469,7 @@ class fault_model:
     def delimit(
         self, num_points: int = 5, high: int = 100, interval: float = 0.5
     ) -> list:
+        """return a list of points to delimit the certain range"""
         param_size = self.get_param_size()
         max_point = np.double(-lg((high / param_size)))
         manti = max_point % 0.5
@@ -474,7 +484,7 @@ class fault_model:
         return points
 
     def relu6_protection(
-        self, model: torch.nn.Module = None, type=(torch.nn.ReLU)
+        self, model: torch.nn.Module = None, protect_layers=(torch.nn.ReLU)
     ) -> None:
         """Warning:
         this will lower model's precision when no fault happening
@@ -485,7 +495,7 @@ class fault_model:
             if len(list(module.children())) > 0:
                 self.relu6_protection(module)
 
-            if isinstance(module, type):
+            if isinstance(module, protect_layers):
                 setattr(model, n, torch.nn.ReLU6())
 
     def __save_layer_info_hook(
@@ -510,6 +520,7 @@ class fault_model:
             self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
 
     def get_emat_single_func(self) -> Callable[[float], float]:
+        """return a simulate function that simulates single bit flip for ```layer single attack```"""
         self.__emat_calc()
         return (
             lambda num: num
@@ -521,4 +532,5 @@ class fault_model:
         )
 
     def stat_model(self, granularity: int = 1) -> None:
+        """Print the model's layer information include their keys"""
         torchstat.stat(self.model, self.input_shape, granularity)

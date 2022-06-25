@@ -92,5 +92,5 @@ class AttackTest(unittest.TestCase):
         self.assertIsInstance(result, tuple)
 
     def test_neuron_ei(self):
-        result = self.fi.mc_attack(10, 1e-5, type="neuron")
+        result = self.fi.mc_attack(10, 1e-5, attack_type="neuron")
         self.assertTrue(check_range(result))
