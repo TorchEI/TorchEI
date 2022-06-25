@@ -1,9 +1,11 @@
-from statistics import mean
-import torch
-from .utils import get_fi, check_range
-import numpy as np
-import unittest
 import random
+import unittest
+from statistics import mean
+
+import numpy as np
+import torch
+
+from .utils import check_range, get_fi
 
 random.seed(100)
 np.random.seed(100)
@@ -32,8 +34,12 @@ class AttackTest(unittest.TestCase):
 
     def test_reliability_calc(self):
         fi = self.fi
-        f = lambda _: False
-        t = lambda _: True
+
+        def f(_):
+            return False
+
+        def t(_):
+            return True
 
         # test adaptive
         result = fi.emat_attack(

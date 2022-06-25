@@ -1,8 +1,10 @@
-import torch
-from .utils import get_fi
-import numpy as np
-import unittest
 import random
+import unittest
+
+import numpy as np
+import torch
+
+from .utils import get_fi
 
 random.seed(100)
 np.random.seed(100)

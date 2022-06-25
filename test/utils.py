@@ -1,8 +1,10 @@
 import random
-from torchei import fault_model
-from torchvision import models
-import torch
+
 import numpy as np
+import torch
+from torchvision import models
+
+from torchei import fault_model
 
 random.seed(100)
 np.random.seed(100)
