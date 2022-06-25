@@ -94,14 +94,14 @@ def sequence_lim_adaptive(
     estimation: list, times: int = 30, deviation: float = 0.01
 ) -> bool:
     if len(estimation) > times:
-        for i in range(1, times + 1):
-            if (
+        return all(
+            not (
                 torch.abs(
                     (estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
                 > deviation
-            ):
-                return False
-        return True
+            )
+            for i in range(1, times + 1)
+        )
     return False
 
 
