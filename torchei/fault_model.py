@@ -398,7 +398,7 @@ class fault_model:
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shapes[i]) != 2:
-                    if output_class == None:
+                    if output_class is None:
                         raise AssertionError
                     p_next = output_class
                 else:
