@@ -105,10 +105,6 @@ def sequence_lim_adaptive(
 
 
 def blank_hook(module: torch.nn.Module, data: tuple, result: torch.tensor) -> None:
-    data = data[0]
-    weight = module.weight
-    weight_num = weight.numel()
-    size = data.numel()
     pass
 
 
