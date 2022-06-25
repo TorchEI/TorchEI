@@ -225,12 +225,11 @@ class fault_model:
 
             if verbose_return:
                 return estimation, group_estimation, n
-            elif adaptive or kalman:
+            if adaptive or kalman:
                 return estimation[-1].item()
-            elif n != 0:
+            if n != 0:
                 return torch.tensor(group_estimation).mean()
-            else:
-                return (error / self.data_size / iteration).item()
+            return (error / self.data_size / iteration).item()
 
         except Exception as e:
             logging.error(f"error happened while calc reliability\n{e}")
