@@ -12,7 +12,7 @@ torch.manual_seed(100)
 
 
 def get_fi(name="squeeze") -> fault_model:
-    model = models.shufflenet_v2_x1_0(pretrained=True)
+    model = models.mobilenet_v2(pretrained=True)
     valid = torch.load("./datasets/ilsvrc_valid8.pt")[:1]
     return fault_model(model, valid)
 

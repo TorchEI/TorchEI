@@ -69,18 +69,18 @@ class fault_model:
         self.data_size = self.valid_data.shape[0] * self.valid_data.shape[1]
         self.infer = infer_func
         self.keys = []
+        self.change_layer_filter(layer_filter)
         self.bitlen = 8 if self.quant else 32
-        self.ground_truth = infer_func(model, self.valid_data)
-        self.shapes = None
+        self.handles = []
         self.zero_rate = []
         self.input_shape = []
+        self.register_hook(self.__save_layer_info_hook)
+        self.ground_truth = infer_func(model, self.valid_data)
+        self.clear_handles()
         self.compute_amount = []
-        self.handles = []
         self.bit_dist = None
         self.synthesis_error = None
         self.p = None
-        self.layer_num = 0
-        self.change_layer_filter(layer_filter)
         self.PerturbationTable = np.array(
             [-1, 2**128, 1 / (2**64), 1 / (2**32), 1 / (2**16), 10, 1],
             dtype=np.double,
@@ -343,7 +343,6 @@ class fault_model:
     @torch.no_grad()
     def calc_detail_info(self) -> None:
         """An auxiliary function for `sern_calc` to calculate the detail information of the model"""
-        self.register_hook(self.__save_layer_info_hook)
         self.infer(self.model, self.valid_data)
 
         batch = self.valid_data.shape[0]
@@ -472,11 +471,9 @@ class fault_model:
         """return a list of points to delimit the certain range"""
         param_size = self.get_param_size()
         max_point = np.double(-lg((high / param_size)))
-        manti = max_point % 0.5
-        max_point = max_point - manti
-        if manti > 0.3:
-            max_point += 0.5
-        if max_point % 1 >= 0.49:
+        remain = max_point % 0.5
+        max_point -= remain
+        if remain > 0.3:
             max_point += 0.5
         points = []
         for i in range(num_points):
@@ -533,4 +530,4 @@ class fault_model:
 
     def stat_model(self, granularity: int = 1) -> None:
         """Print the model's layer information include their keys"""
-        torchstat.stat(self.model, self.input_shape, granularity)
+        torchstat.stat(self.model.to("cpu"), self.input_shape[1:], granularity)
