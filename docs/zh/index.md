@@ -6,7 +6,9 @@
 <h1 style = "margin:0;" align="center">TorchEI⚡</h1>
 
 <div align = "center" style="font-weight: bold;"><a href="#introduction">Intro</a> ● <a href="#quick-example">Usage</a> ● <a href="https://TorchEI.github.com.io/TorchEI/">Doc</a>  ● <a href="#citation">Cite</a> ● <a href="#contribution" >Contribution</a> ● <a href="#license">License</a></div>
+
 ---
+
 <div align = "center">
     <a href = "https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml">
 		<img src="https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml/badge.svg"/></a>
@@ -41,7 +43,7 @@ Here we gonna show you a quick example, or you can try [interactive demo](https:
 
 #### Installing
 
-Install public distribution using  `pip3 install torchei` or [download](https://github.com/TorchEI/TorchEI/archive/refs/heads/main.zip) it.
+Install public distribution using  `pip3 install -U torchei -i https://pypi.org/simple` or [download](https://github.com/TorchEI/TorchEI/archive/refs/heads/main.zip) it.
 
 #### Example
 

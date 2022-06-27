@@ -1,7 +1,6 @@
 # Docs
 node_modules
 .temp
-.docs/
 .vuepress/
 
 # Byte-compiled / optimized / DLL files
@@ -133,6 +132,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/docs
 .vscode/settings.json
 /.vscode

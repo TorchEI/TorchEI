@@ -3,16 +3,16 @@
   "version": "0.0.1",
   "description": "Documentation of TorchEI",
   "main": "index.js",
-  "repository": "https://github.com/TorchEI/TorchEI.git",
+  "repository": "https://github.com/TorchEI/TorchEI",
   "author": "Forceless <forcelesszheng@foxmail.com>",
   "license": "MIT",
   "private": false,
   "scripts": {
-    "docs:dev": "vuepress dev docs/markdown --port 8987",
-    "docs:build": "vuepress build docs/markdown  --port 8987"
+    "docs:dev": "vuepress dev docs --port 8987",
+    "docs:build": "vuepress build docs"
   },
-  "devDependencies": {},
-  "dependencies": {
-    "vuepress": "^2.0.0-beta.45"
-  }
+  "devDependencies": {
+    "vuepress": "^1.9.7"
+  },
+  "dependencies": {}
 }
