@@ -1,7 +1,6 @@
 # Docs
 node_modules
 .temp
-.vuepress/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -100,5 +100,5 @@ We want to build TorchEI to best toolbox in DNN Reliability around bit flip, adv
 Our paper is under delivering.
 
 ## License
-> [MIT](./LICENSE) License.
+> [MIT](https://github.com/TorchEI/TorchEI/blob/main/LICENSE) License.
 > Copyright:copyright:2022/5/23-present, Hao Zheng.

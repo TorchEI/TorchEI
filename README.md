@@ -6,7 +6,9 @@
 <h1 style = "margin:0;" align="center">TorchEI⚡</h1>
 
 <div align = "center" style="font-weight: bold;"><a href="#introduction">Intro</a> ● <a href="#quick-example">Usage</a> ● <a href="https://TorchEI.github.com.io/TorchEI/">Doc</a>  ● <a href="#citation">Cite</a> ● <a href="#contribution" >Contribution</a> ● <a href="#license">License</a></div>
----
+
+------
+
 <div align = "center">
     <a href = "https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml">
 		<img src="https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml/badge.svg"/></a>
@@ -23,7 +25,6 @@
 </div>
 
 ## Introduction
-
 
 👋TorchEI, pronounced*/ˈtôrCHər/*, short for Pytorch Error Injection, is a high-speed toolbox around DNN Reliability's Research and Development. TorchEI enables you quickly and simply inject errors into DNN, collects information you needed, and harden your DNN.
 
@@ -98,5 +99,5 @@ We want to build TorchEI to best toolbox in DNN Reliability around bit flip, adv
 Our paper is under delivering.
 
 ## License
-> [MIT](./LICENSE) License.
+> [MIT](https://github.com/TorchEI/TorchEI/blob/main/LICENSE) License.
 > Copyright:copyright:2022/5/23-present, Hao Zheng.

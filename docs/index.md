@@ -7,7 +7,7 @@
 
 <div align = "center" style="font-weight: bold;"><a href="#introduction">Intro</a> ● <a href="#quick-example">Usage</a> ● <a href="https://TorchEI.github.com.io/TorchEI/">Doc</a>  ● <a href="#citation">Cite</a> ● <a href="#contribution" >Contribution</a> ● <a href="#license">License</a></div>
 
----
+-----
 
 <div align = "center">
     <a href = "https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml">
@@ -100,5 +100,5 @@ We want to build TorchEI to best toolbox in DNN Reliability around bit flip, adv
 Our paper is under delivering.
 
 ## License
-> [MIT](./LICENSE) License.
+> [MIT](https://github.com/TorchEI/TorchEI/blob/main/LICENSE) License.
 > Copyright:copyright:2022/5/23-present, Hao Zheng.
