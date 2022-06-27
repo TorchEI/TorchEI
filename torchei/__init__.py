@@ -1,4 +1,4 @@
-from .fault_model import fault_model, default_layer_filter
+from .fault_model import default_layer_filter, fault_model
 from .utils import *
 
 version = "0.1.1"

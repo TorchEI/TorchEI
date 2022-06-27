@@ -54,7 +54,7 @@ import torch
 from torchvision import models
 import torchei
 model = models.resnet18(pretrained=True)
-data = torch.load('./datasets/ilsvrc_valid8.pt')
+data = torch.load('data/ilsvrc_valid8.pt')
 fault_model = torchei.fault_model(model,data)
 ```
 
