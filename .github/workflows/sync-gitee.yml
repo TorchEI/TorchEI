@@ -1,0 +1,19 @@
+name: sync-gitee
+on:
+  push:
+    branches:
+      - main
+jobs:
+  repo-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror the Github organization repos to Gitee.
+        uses: Yikun/hub-mirror-action@master
+        with:
+          src: 'github/TorchEI'
+          dst: 'gitee/TorchEI'
+          dst_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          dst_token:  ${{ secrets.GITEE_PRIVATE_KEY }}
+          static_list: "learn-typescript"
+          force_update: true
+          debug: true

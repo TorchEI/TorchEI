@@ -39,7 +39,7 @@ result_type = TypeVar("result_type")
 
 
 class fault_model:
-    """Fault model in `torchei`"""
+    """fault model of DNN in `torchei`"""
 
     @torch.no_grad()
     def __init__(
@@ -99,8 +99,10 @@ class fault_model:
 
         must contain all,must contain one of,can't contain,least dimensions of layer's weight:
         """
+        assert len(layer_filter) == 4
+        assert all(isinstance(x, list) for x in layer_filter[:-1])
         for key in [*self.pure_dict.keys()]:
-            flag = [True, False, True]
+            flag = [True, len(layer_filter[1]) == 0, True]
             for must_contain in layer_filter[0]:
                 if must_contain not in key:
                     flag[0] = False
@@ -137,7 +139,8 @@ class fault_model:
 
     def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
         self.clear_handles()
-        self.register_hook(partial(inject_hook, self.rng), hook_type="forward_pre")
+        self.register_hook(partial(inject_hook, self.rng),
+                           hook_type="forward_pre")
 
     @torch.no_grad()
     def reliability_calc(
@@ -163,7 +166,8 @@ class fault_model:
             verbose_return = kwargs.get("verbose_return", False)
             group_estimation = []
             if adaptive:
-                adaptive_func = kwargs.get("adaptive_func", sequence_lim_adaptive)
+                adaptive_func = kwargs.get(
+                    "adaptive_func", sequence_lim_adaptive)
                 if group_size <= 0:
                     raise AssertionError
             if kalman:
@@ -180,7 +184,8 @@ class fault_model:
                     corrupt_result = self.infer(self.model, self.valid_data)
                     error += torch.sum(corrupt_result != self.ground_truth)
                     if (iter_times + 1) % group_size == 0:
-                        group_estimation.append(error / self.data_size / group_size)
+                        group_estimation.append(
+                            error / self.data_size / group_size)
                         error = 0
                         # robust estimation 还没加上去
                 mea_uncer_r, estimation_x = torch.var_mean(
@@ -207,7 +212,8 @@ class fault_model:
                     error = 0
 
                     if kalman:
-                        Kalman_Gain = est_uncert_p / (est_uncert_p + mea_uncer_r)
+                        Kalman_Gain = est_uncert_p / \
+                            (est_uncert_p + mea_uncer_r)
                         estimation.append(
                             estimation[-1] + Kalman_Gain * (z - estimation[-1])
                         )
@@ -306,8 +312,10 @@ class fault_model:
             result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1) for i in self.shapes[key_id]])
-                attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
+                corrupt_idx = tuple([randint(0, i - 1)
+                                    for i in self.shapes[key_id]])
+                attack_result = attack_func(
+                    corrupt_dict[key][corrupt_idx].item())
                 if not type(attack_result) is tuple:
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
@@ -385,14 +393,15 @@ class fault_model:
         nonzero = 1 - torch.tensor(self.zero_rate)
         sern = []
         input_size = (
-            self.input_shape[0][0] * self.input_shape[0][1] * self.input_shape[0][2]
+            self.input_shape[0][0] *
+            self.input_shape[0][1] * self.input_shape[0][2]
         )
         big_cnn = False
         k = 1 / 64
         if input_size > 200 * 200 * 3:
             big_cnn = True
         for i in range(layernum):
-            later_compute = sum(self.compute_amount[i + 1 :])
+            later_compute = sum(self.compute_amount[i + 1:])
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shapes[i]) != 2:
@@ -452,7 +461,8 @@ class fault_model:
             key = key.rsplit(".", 1)[0]
             module = model.get_submodule(key)
             if hook_type == "forward_pre":
-                self.handles.append(module.register_forward_pre_hook(hook=hook))
+                self.handles.append(
+                    module.register_forward_pre_hook(hook=hook))
             elif hook_type == "forward":
                 self.handles.append(module.register_forward_hook(hook=hook))
 
