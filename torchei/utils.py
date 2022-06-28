@@ -102,7 +102,7 @@ def sequence_lim_adaptive(
     return False
 
 
-def blank_hook(module: torch.nn.Module, data: tuple, result: torch.tensor) -> None:
+def blank_hook(module: torch.nn.Module, data: tuple, result: torch.Tensor) -> None:
     pass
 
 
@@ -128,7 +128,7 @@ def monte_carlo_hook(
     module: torch.nn.Module,
     input_data: tuple,
 ) -> None:
-    input_data: torch.tensor = input_data[0].flatten()
+    input_data: torch.Tensor = input_data[0].flatten()
     for i in range(len(input_data)):
         if rng.random() < p:
             input_data[i] = attack_func(input_data[i])
