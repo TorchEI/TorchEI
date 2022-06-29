@@ -32,43 +32,18 @@ module.exports = {
           //{ title: 'Error Injection', path: '/Error-Injection' },
           //{ title: 'Model Protection', path: '/Model-Protection' },
           //{ title: 'Implemented Algorithms', path: '/Implemented-Algorithms' },
-        ],
+
+        ]
       },
-    ],
+    ]
   },
   head: [
-    [
-      "link",
-      {
-        rel: "apple-touch-icon",
-        sizes: "180x180",
-        href: "/assets/apple-icon-180x180.png",
-      },
-    ],
-    [
-      "link",
-      {
-        rel: "icon",
-        type: "image/png",
-        sizes: "32x32",
-        href: "/assets/favicon-32x32.png",
-      },
-    ],
-    [
-      "link",
-      {
-        rel: "icon",
-        type: "image/png",
-        sizes: "16x16",
-        href: "/assets/favicon-16x16.png",
-      },
-    ],
-    ["link", { rel: "shortcut icon", href: "/assets/favicon.ico" }],
-    ["meta", { name: "msapplication-TileColor", content: "#3a0839" }],
-    [
-      "meta",
-      { name: "msapplication-config", content: "/assets/browserconfig.xml" },
-    ],
-    ["meta", { name: "theme-color", content: "#ffffff" }],
-  ],
-};
+    ['link', { rel: "apple-touch-icon", sizes: "180x180", href: "/assets/apple-icon-180x180.png" }],
+    ['link', { rel: "icon", type: "image/png", sizes: "32x32", href: "/assets/favicon-32x32.png" }],
+    ['link', { rel: "icon", type: "image/png", sizes: "16x16", href: "/assets/favicon-16x16.png" }],
+    ['link', { rel: "shortcut icon", href: "/assets/favicon.ico" }],
+    ['meta', { name: "msapplication-TileColor", content: "#3a0839" }],
+    ['meta', { name: "msapplication-config", content: "/assets/browserconfig.xml" }],
+    ['meta', { name: "theme-color", content: "#ffffff" }],
+  ]
+}
