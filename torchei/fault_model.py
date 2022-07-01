@@ -13,17 +13,9 @@ import torch
 import torchstat
 from tqdm import tqdm
 
-from .utils import (
-    blank_hook,
-    emat,
-    float_to_bin,
-    get_result,
-    monte_carlo,
-    monte_carlo_hook,
-    sequence_lim_adaptive,
-    single_bit_flip,
-    zscore_dr_hook,
-)
+from .utils import (blank_hook, emat, float_to_bin, get_result, monte_carlo,
+                    monte_carlo_hook, sequence_lim_adaptive, single_bit_flip,
+                    zscore_dr_hook)
 
 __all__ = ["fault_model"]
 
@@ -133,11 +125,13 @@ class fault_model:
         return wrapper
 
     def weight_ei(self, inject_func) -> None:
+        """low-level method to inject weight error"""
         corrupt_dict = deepcopy(self.pure_dict)
         inject_func(corrupt_dict, self.rng)
         self.model.load_state_dict(corrupt_dict)
 
     def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
+        """low-level method to inject neuron error"""
         self.clear_handles()
         self.register_hook(partial(inject_hook, self.rng), hook_type="forward_pre")
 
@@ -253,6 +247,18 @@ class fault_model:
         attack_type="weight",
         **kwargs,
     ) -> Union[list, float]:
+        """Inject error using Monte Carlo method"""
+        return self.reliability_calc(
+            iteration=iteration,
+            error_inject=self.mc_wrapper(p, attack_func, attack_type),
+            kalman=kalman,
+            **kwargs,
+        )
+
+    def mc_wrapper(
+        self, p: float, attack_func: Callable[[float], float], attack_type="weight"
+    ) -> Callable[[None], None]:
+        """Wrapper for injecting error using Monte Carlo method"""
         if attack_func is None:
             attack_func = single_bit_flip
         if attack_type == "weight":
@@ -264,35 +270,32 @@ class fault_model:
         else:
             raise "Inject Type Error, you should select weight or neuron"
         self.p = p
-        return self.reliability_calc(
-            iteration=iteration,
-            error_inject=error_inject,
-            kalman=kalman,
-            **kwargs,
-        )
+        return error_inject
 
     def emat_attack(
         self,
         iteration: int,
         p: float,
         kalman: bool = False,
-        attack_type="weight",
         **kwargs,
     ) -> Union[list, float]:
-        p /= self.bitlen
-        self.p = p
-        self.__emat_calc()
-        if attack_type != "weight":
-            raise "Inject Type Error, emat only support attack on weight"
-        inject_func = partial(
-            emat, self.PerturbationTable, self.PropTable, self.device, self.keys
-        )
+        """Inject error using EMAT method"""
         return self.reliability_calc(
             iteration=iteration,
-            error_inject=partial(self.weight_ei, inject_func),
+            error_inject=self.emat_wrapper(p),
             kalman=kalman,
             **kwargs,
         )
+
+    def emat_wrapper(self, p: float) -> Callable[[None], None]:
+        """Wrapper for EMAT method, return a inject function"""
+        p /= self.bitlen
+        self.p = p
+        self.__emat_calc()
+        inject_func = partial(
+            emat, self.PerturbationTable, self.PropTable, self.device, self.keys
+        )
+        return (partial(self.weight_ei, inject_func),)
 
     @torch.no_grad()
     def layer_single_attack(
@@ -301,6 +304,7 @@ class fault_model:
         attack_func: Callable[[float], Any] = None,
         error_rate=True,
     ) -> list:
+        """Inject single error in layer per iteration"""
         if attack_func is None:
             attack_func = single_bit_flip
         result = []

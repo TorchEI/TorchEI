@@ -1,4 +1,4 @@
-name: doc-deploy
+name: Doc
 on: [push]
 jobs:
   doc-deploy:
@@ -9,6 +9,9 @@ jobs:
 
       - name: api-generate
         run: |
+          sed -i 's/[中文](./README-zh.md)//' README-zh.md
+          cp README.md ./docs/index.md
+          cp README-zh.md ./docs/zh/index.md
           pip3 install pydoc-markdown torchei
           pip3 install typing-extensions==3.10.0.2
           echo '# API Reference' > docs/api.md
