@@ -11,6 +11,8 @@
 <div align = "center">
     <a href = "https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml">
   <img src="https://github.com/TorchEI/TorchEI/actions/workflows/pytest-cov.yml/badge.svg"/></a>
+    <a href = "https://github.com/TorchEI/TorchEI/actions/workflows/doc-deploy.yml">
+  <img src="https://github.com/TorchEI/TorchEI/actions/workflows/doc-deploy.yml/badge.svg"/></a>
  <a href="https://codecov.io/gh/TorchEI/TorchEI" >
    <img src="https://codecov.io/gh/TorchEI/TorchEI/branch/main/graph/badge.svg?token=0ADLQFHLCJ"/></a>
  <a href="https://www.codacy.com/gh/TorchEI/TorchEI/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=TorchEI/TorchEI&amp;utm_campaign=Badge_Grade">
@@ -23,9 +25,11 @@
     <img src="https://img.shields.io/github/license/torchei/torchei" alt="License"></a>
 </div>
 
+[中文](./README-zh.md)
+
 ## Introduction
 
-👋TorchEI, pronounced*/ˈtôrCHər/*, short for Pytorch Error Injection, is a high-speed toolbox for DNN Reliability's Research and Development. TorchEI enables you quickly and simply inject errors into DNN, collects information you needed, and harden your DNN.
+👋TorchEI, pronounced*/ˈtôrCHər/*(like torture), short for Pytorch Error Injection, is a high-speed toolbox for DNN Reliability's Research and Development. TorchEI enables you quickly and simply inject errors into DNN, collects information you needed, and harden your DNN.
 
 TorchEI implemented incredible parallel evaluation system which could allow you adequately utilize device computing performance with tolerance to non-catastrophic faults.
 
