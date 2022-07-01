@@ -91,8 +91,10 @@ class fault_model:
 
         must contain all,must contain one of,can't contain,least dimensions of layer's weight:
         """
-        assert len(layer_filter) == 4
-        assert all(isinstance(x, list) for x in layer_filter[:-1])
+        if len(layer_filter) != 4:
+            raise AssertionError
+        if not all(isinstance(x, list) for x in layer_filter[:-1]):
+            raise AssertionError
         for key in [*self.pure_dict.keys()]:
             flag = [True, len(layer_filter[1]) == 0, True]
             for must_contain in layer_filter[0]:
