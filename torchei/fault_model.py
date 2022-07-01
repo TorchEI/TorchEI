@@ -13,9 +13,17 @@ import torch
 import torchstat
 from tqdm import tqdm
 
-from .utils import (blank_hook, emat, float_to_bin, get_result, monte_carlo,
-                    monte_carlo_hook, sequence_lim_adaptive, single_bit_flip,
-                    zscore_dr_hook)
+from .utils import (
+    blank_hook,
+    emat,
+    float_to_bin,
+    get_result,
+    monte_carlo,
+    monte_carlo_hook,
+    sequence_lim_adaptive,
+    single_bit_flip,
+    zscore_dr_hook,
+)
 
 __all__ = ["fault_model"]
 
