@@ -69,6 +69,7 @@ class fault_model:
         self.data_size = self.valid_data.shape[0] * self.valid_data.shape[1]
         self.infer = infer_func
         self.keys = []
+        self.shape = []
         self.change_layer_filter(layer_filter)
         self.bitlen = 8 if self.quant else 32
         self.handles = []
@@ -117,8 +118,8 @@ class fault_model:
             if all(flag) and len(self.pure_dict[key].shape) >= layer_filter[-1]:
                 self.keys.append(key)
 
-        self.shapes = [[*self.pure_dict[key].shape] for key in self.keys]
-        self.layer_num = len(self.shapes)
+        self.shape = [[*self.pure_dict[key].shape] for key in self.keys]
+        self.layer_num = len(self.shape)
 
     def time_decorator(self, func) -> Callable[..., Any]:
         """return same function but record its time cost using self.time"""
@@ -158,93 +159,85 @@ class fault_model:
         adaptive:        Auto-Stop
         verbose_return:  return (estimation, group estimation, group index)
         """
-        try:
-            # all parameter should be exposed
-            if kwargs.get("time_count", True):
-                self.time = 0
-                error_inject = self.time_decorator(error_inject)
-            group_size = kwargs.get("group_size", 50)  # after change it to 0
-            verbose_return = kwargs.get("verbose_return", False)
-            group_estimation = []
-            if adaptive:
-                adaptive_func = kwargs.get("adaptive_func", sequence_lim_adaptive)
-                if group_size <= 0:
-                    raise AssertionError
-            if kalman:
-                init_size = kwargs.get("init_size", 1000)
-                if not (
-                    init_size % group_size == 0
-                    and init_size // group_size > 1
-                    and group_size > 1
-                ):
-                    raise AssertionError
-                error = 0
-                for iter_times in tqdm(range(init_size)):
-                    error_inject()
-                    corrupt_result = self.infer(self.model, self.valid_data)
-                    error += torch.sum(corrupt_result != self.ground_truth)
-                    if (iter_times + 1) % group_size == 0:
-                        group_estimation.append(error / self.data_size / group_size)
-                        error = 0
-                        # robust estimation 还没加上去
-                mea_uncer_r, estimation_x = torch.var_mean(
-                    torch.tensor(group_estimation)
-                )
-                est_uncert_p = (
-                    self.get_param_size() * self.p / init_size / 32 / group_size
-                )
-                estimation = [estimation_x]
 
+        # all parameter should be exposed
+        if kwargs.get("time_count", True):
+            self.time = 0
+            error_inject = self.time_decorator(error_inject)
+        group_size = kwargs.get("group_size", 50)  # after change it to 0
+        verbose_return = kwargs.get("verbose_return", False)
+        group_estimation = []
+        if adaptive:
+            adaptive_func = kwargs.get("adaptive_func", sequence_lim_adaptive)
+            if group_size <= 0:
+                raise AssertionError
+        if kalman:
+            init_size = kwargs.get("init_size", 1000)
+            if not (
+                init_size % group_size == 0
+                and init_size // group_size > 1
+                and group_size > 1
+            ):
+                raise AssertionError
             error = 0
-            n = 0
-            if locals().get("estimation") is None:
-                estimation = [0]
-
-            for iter_times in tqdm(range(iteration)):
+            for iter_times in tqdm(range(init_size)):
                 error_inject()
                 corrupt_result = self.infer(self.model, self.valid_data)
                 error += torch.sum(corrupt_result != self.ground_truth)
-                if group_size and (iter_times + 1) % group_size == 0:
-                    n += 1
-                    z = error / self.data_size / group_size
-                    group_estimation.append(z)
+                if (iter_times + 1) % group_size == 0:
+                    group_estimation.append(error / self.data_size / group_size)
                     error = 0
-
-                    if kalman:
-                        Kalman_Gain = est_uncert_p / (est_uncert_p + mea_uncer_r)
-                        estimation.append(
-                            estimation[-1] + Kalman_Gain * (z - estimation[-1])
-                        )
-                        est_uncert_p = est_uncert_p * (1 - Kalman_Gain)
-
-                    if adaptive:
-                        if not kalman:
-                            if n == 2:
-                                estimation.pop(0)
-                            estimation.append(
-                                (n - 1) / n * estimation[-1]
-                                + 1 / n * group_estimation[-1]
-                            )
-
-                        if adaptive_func(estimation):
-                            break
-
-            if verbose_return:
-                return estimation, group_estimation, n
-            if adaptive or kalman:
-                return estimation[-1].item()
-            if n != 0:
-                return torch.tensor(group_estimation).mean().item()
-            return (error / self.data_size / iteration).item()
-
-        except Exception as e:
-            logging.error(f"error happened while calc reliability\n{e}")
-            last_estimation = estimation[-1]
-            logging.log(
-                5,
-                f"Unsaved values:group\ngroup_estimation:{group_estimation}\nestimation:{last_estimation}\niterTimes{n}",
+                    # robust estimation 还没加上去
+            mea_uncer_r, estimation_x = torch.var_mean(
+                torch.tensor(group_estimation)
             )
-            print(f"error happened while calc reliability\n{e}")
+            est_uncert_p = (
+                self.get_param_size() * self.p / init_size / 32 / group_size
+            )
+            estimation = [estimation_x]
+
+        error = 0
+        n = 0
+        if locals().get("estimation") is None:
+            estimation = [0]
+
+        for iter_times in tqdm(range(iteration)):
+            error_inject()
+            corrupt_result = self.infer(self.model, self.valid_data)
+            error += torch.sum(corrupt_result != self.ground_truth)
+            if group_size and (iter_times + 1) % group_size == 0:
+                n += 1
+                z = error / self.data_size / group_size
+                group_estimation.append(z)
+                error = 0
+
+                if kalman:
+                    Kalman_Gain = est_uncert_p / (est_uncert_p + mea_uncer_r)
+                    estimation.append(
+                        estimation[-1] + Kalman_Gain * (z - estimation[-1])
+                    )
+                    est_uncert_p = est_uncert_p * (1 - Kalman_Gain)
+
+                if adaptive:
+                    if not kalman:
+                        if n == 2:
+                            estimation.pop(0)
+                        estimation.append(
+                            (n - 1) / n * estimation[-1]
+                            + 1 / n * group_estimation[-1]
+                        )
+
+                    if adaptive_func(estimation):
+                        break
+
+        if verbose_return:
+            return estimation, group_estimation, n
+        if adaptive or kalman:
+            return estimation[-1].item()
+        if n != 0:
+            return torch.tensor(group_estimation).mean().item()
+        return (error / self.data_size / iteration).item()
+
 
     def mc_attack(
         self,
@@ -320,13 +313,13 @@ class fault_model:
             result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1) for i in self.shapes[key_id]])
+                corrupt_idx = tuple([randint(0, i - 1) for i in self.shape[key_id]])
                 attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
                 if not type(attack_result) is tuple:
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
                     if error_rate:
-                        raise "If you need verbose info, you should calc error rate yourself"
+                        raise "If you need verbose info, you should calc error rate"
                     corrupt_dict[key][corrupt_idx] = attack_result[0]
                     result.append(attack_result[1:])
                 self.model.load_state_dict(corrupt_dict)
@@ -339,12 +332,12 @@ class fault_model:
         return result
 
     def get_layer_shape(self) -> list:
-        return self.shapes
+        return self.shape
 
     def get_param_size(self) -> int:
         """Calculate the total parameter size of the model"""
         param_size = 0
-        for i in self.shapes:
+        for i in self.shape:
             temp = 1
             for j in i:
                 temp *= j
@@ -357,8 +350,6 @@ class fault_model:
     @torch.no_grad()
     def calc_detail_info(self) -> None:
         """An auxiliary function for `sern_calc` to calculate the detail information of the model"""
-        self.infer(self.model, self.valid_data)
-
         batch = self.valid_data.shape[0]
         layer_num = int(len(self.zero_rate) / batch)
         if batch != 1:
@@ -373,21 +364,19 @@ class fault_model:
         self.input_shape = temp
 
         for i in range(layer_num):
-            if len(self.shapes[i]) == 4:
-                s = self.shapes[i][-1]
+            if len(self.shape[i]) == 4:
+                s = self.shape[i][-1]
                 n = self.input_shape[i][0]
-                m = self.shapes[i][0]
+                m = self.shape[i][0]
                 self.compute_amount.append(
                     self.input_shape[i + 1][1] ** 2 * s * s * n * m
                 )
-            elif len(self.shapes[i]) == 2:
-                p = self.input_shape[i][0]
-                if p != self.shapes[i][1]:
-                    raise AssertionError
+            elif len(self.shape[i]) == 2:
+                p = self.input_shape[i][0]*self.input_shape[i][1] # 要 n * m ?
                 self.compute_amount.append(p)
         self.clear_handles()
 
-    def get_selected_keys(self) -> list:
+    def get_selected_keys(self) -> list[str]:
         return self.keys
 
     @torch.no_grad()
@@ -395,7 +384,7 @@ class fault_model:
         """Calculating model's sbf error rate using sern algorithm"""
         if self.compute_amount == []:
             self.calc_detail_info()
-        layernum = len(self.shapes)
+        layernum = len(self.shape)
         nonzero = 1 - torch.tensor(self.zero_rate)
         sern = []
         input_size = (
@@ -409,12 +398,12 @@ class fault_model:
             later_compute = sum(self.compute_amount[i + 1 :])
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
-                if len(self.shapes[i]) != 2:
+                if len(self.shape[i]) != 2:
                     if output_class is None:
                         raise AssertionError
                     p_next = output_class
                 else:
-                    p_next = 1 / self.shapes[i][0]
+                    p_next = 1 / self.shape[i][0]
             else:
                 p_next = nonzero[i + 1]
             if i == 0 and big_cnn:
@@ -426,7 +415,7 @@ class fault_model:
                     * self.compute_amount[i]
                     * (1 + p_next)
                     / 2
-                    / self.shapes[i][0]
+                    / self.shape[i][0]
                     + later_compute
                 )
                 / now_compute

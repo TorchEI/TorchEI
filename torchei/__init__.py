@@ -17,7 +17,6 @@ __all__ = [
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
-    "dic_max",
     "version",
     "default_layer_filter",
 ]

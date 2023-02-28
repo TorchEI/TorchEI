@@ -19,9 +19,7 @@ class ProtectionTest(unittest.TestCase):
 
     def test_relu6(self):
         self.fi.relu6_protection()
-        protected = self.fi.emat_attack(10, 1e-5)
-        print(protected)
-        print(self.unprotected)
+        protected = self.fi.emat_attack(10, 1e-3)
         self.assertTrue(protected != self.unprotected)
 
     def test_zscoreDR(self):
