@@ -1,6 +1,6 @@
 import struct
 from random import randint
-from typing import Callable, OrderedDict
+from typing import Callable, OrderedDict, List
 
 import numpy as np
 import torch
@@ -11,23 +11,29 @@ __all__ = [
     "emat",
     "get_result",
     "sequence_lim_adaptive",
-    "blank_hook",
-    "zscore_dr_hook",
     "float_to_bin",
     "bin_to_float",
-    "set_zero",
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
     "monte_carlo_hook",
+    "zscore_forward",
+    "zscore_hook"
 ]
 
 
+def zscore_forward(std: torch.Tensor(), mean: torch.Tensor, self: torch.nn.Conv2d, x: torch.Tensor):
+    self.weight *= ~(torch.abs((self.weight - mean) / std) > 1000)
+    return self._conv_forward(x, self.weight, self.bias)
+
+def zscore_hook(std: torch.Tensor(), mean: torch.Tensor, module: torch.nn.Conv2d, x: torch.Tensor):
+    module.weight *= ~(torch.abs((module.weight - mean) / std) > 1000)
+
 def emat(
-    Per: list[float],
-    Prop: list[float],
+    Per: List[float],
+    Prop: List[float],
     device: str,
-    keys: list[str],
+    keys: List[str],
     dic: OrderedDict,
     rng: np.random.Generator,
     *args
@@ -40,7 +46,7 @@ def emat(
 def monte_carlo(
     attack_func: Callable[[float], float],
     p: float,
-    keys: list[str],
+    keys: List[str],
     dic: OrderedDict,
     rng: np.random.Generator,
     *args
@@ -83,7 +89,7 @@ def get_result(
 
 
 def sequence_lim_adaptive(
-    estimation: list, times: int = 30, deviation: float = 0.01
+    estimation: List, times: int = 30, deviation: float = 0.01
 ) -> bool:
     if len(estimation) > times:
         return all(
@@ -97,36 +103,10 @@ def sequence_lim_adaptive(
     return False
 
 
-def blank_hook(module: torch.nn.Module, input_data: tuple, result: torch.Tensor) -> None:
-    pass
-
-
-def zscore_dr_hook(module: torch.nn.Module, input_data: tuple, type=["weight"]) -> None:
-    input_data = input_data[0]
-    protect_set = []
-    if "weight" in type:
-        protect_set.append(module.weight)
-    if "input" in type:
-        protect_set.append(input_data)
-    for i in protect_set:
-        if torch.max(i) > 2:
-            value = i.to("cpu")
-            trim = stats.trimboth(value, 0.001)
-            mean = trim.mean()
-            std = trim.std()
-            zscore = torch.abs((value - mean) / std)
-            outliers = [tuple(i) for i in torch.nonzero(zscore > 10000)]
-            for idx in outliers:
-                outlier = i[idx]
-                bits = float_to_bin(outlier)
-                bits = bits[0]+'0'+bits[2:]
-                i[idx] = bin_to_float(bits)
-
-
 def monte_carlo_hook(
     attack_func: Callable[[float], None],
     p: float,
-    keys: list[str],
+    keys: List[str],
     rng: np.random.Generator,
     module: torch.nn.Module,
     input_data: tuple,
@@ -137,11 +117,11 @@ def monte_carlo_hook(
             input_data[i] = attack_func(input_data[i])
 
 
-def float_to_bin(num: float) -> list:
+def float_to_bin(num: float) -> List:
     return bin(struct.unpack("!I", struct.pack("!f", num))[0])[2:].zfill(32)
 
 
-def bin_to_float(binary: list) -> float:
+def bin_to_float(binary: List) -> float:
     return struct.unpack("!f", struct.pack("!I", int(binary, 2)))[0]
 
 
