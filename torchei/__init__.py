@@ -1,7 +1,7 @@
-from .fault_model import default_layer_filter, fault_model
+from .fault_model import fault_model
 from .utils import *
 
-version = "0.1.1"
+version = "0.1.2"
 
 __all__ = [
     "fault_model",
@@ -17,7 +17,5 @@ __all__ = [
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
-    "dic_max",
     "version",
-    "default_layer_filter",
 ]

@@ -31,13 +31,11 @@
 👋TorchEI, 发音为*/ˈtôrCHər/*(like torture),  是Pytorch Error Injection的缩写, 一个围绕DNN Reliability 研究的高速工具箱. TorchEI 使您能够快速简单地将错误注入 DNN，收集您需要的信息并强化您的 DNN。
 
 
-TorchEI 实施了高效的并行评估系统，它可以让您充分利用设备计算性能并容忍非灾难性故障。
-
 ## Features
 
 - 完善的类型提示和文档支持
 - 包含来自 DNN 可靠性论文的方法
-- 高效、容错的并行系统
+- 高度定制化
 
 ## Quick Example
 

@@ -17,7 +17,6 @@ class ToolTest(unittest.TestCase):
         self.fi = get_fi()
         return super().setUp()
 
-    # sern出错了
     def test_sern(self):
         sern = self.fi.sern_calc(1000)
         self.assertTrue(check_range(sern[0], 0.02, 0.04))
@@ -35,11 +34,13 @@ class ToolTest(unittest.TestCase):
         return 1
 
     def test_synthesis_error(self):
-        self.fi.get_emat_single_func()
+        self.fi.get_emat_func()
         self.assertTrue(check_range(self.fi.synthesis_error, 8, 12))
 
     def test_register_hook(self):
-        self.fi.register_hook()
+        def blank_hook(x,y):
+            pass
+        self.fi.register_hook(blank_hook)
         self.assertEqual(len(self.fi.handles), len(self.fi.keys))
 
     def test_delimit(self):

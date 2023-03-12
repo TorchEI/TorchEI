@@ -31,13 +31,11 @@
 
 👋TorchEI, pronounced*/ˈtôrCHər/*(like torture), short for Pytorch Error Injection, is a high-speed toolbox for DNN Reliability's Research and Development. TorchEI enables you quickly and simply inject errors into DNN, collects information you needed, and harden your DNN.
 
-TorchEI implemented incredible parallel evaluation system which could allow you adequately utilize device computing performance with tolerance to non-catastrophic faults.
-
 ## Features
 
 - Full typing system supported
-- Contains methods from papers in DNN Reliability
-- High-efficiency, fault-tolerant parallel system
+- Implemented methods from papers
+- Highly customizable
 
 ## Quick Example
 
