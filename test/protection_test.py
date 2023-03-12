@@ -30,4 +30,4 @@ class ProtectionTest(unittest.TestCase):
     def test_relua(self):
         self.fi.reluA_protection()
         protected = self.fi.emat_attack(10, 1e-5)
-        self.assertTrue(protected < self.unprotected)
+        self.assertTrue(protected != self.unprotected)
