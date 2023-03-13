@@ -4,8 +4,8 @@ from math import log10 as lg
 from random import randint
 from statistics import mean
 from time import monotonic_ns
-from typing import Any, Callable, TypeVar, Union, List
 from types import MethodType
+from typing import Any, Callable, List, TypeVar, Union
 
 import numpy as np
 import torch
@@ -21,7 +21,7 @@ from .utils import (
     sequence_lim_adaptive,
     single_bit_flip,
     zscore_forward,
-    zscore_hook
+    zscore_hook,
 )
 
 __all__ = ["fault_model"]
@@ -140,8 +140,7 @@ class fault_model:
     def neuron_ei(self, inject_hook: Callable[[torch.nn.Module, tuple], None]) -> None:
         """low-level method to inject neuron error"""
         self.clear_handles()
-        self.register_hook(partial(inject_hook, self.rng),
-                           hook_type="forward_pre")
+        self.register_hook(partial(inject_hook, self.rng), hook_type="forward_pre")
 
     def reliability_calc(
         self,
@@ -183,16 +182,11 @@ class fault_model:
                 corrupt_result = self.infer(self.model, self.valid_data)
                 error += torch.sum(corrupt_result != self.ground_truth)
                 if (iter_times + 1) % group_size == 0:
-                    group_estimation.append(
-                        error / self.data_size / group_size)
+                    group_estimation.append(error / self.data_size / group_size)
                     error = 0
                     # robust estimation 还没加上去
-            mea_uncer_r, estimation_x = torch.var_mean(
-                torch.tensor(group_estimation)
-            )
-            est_uncert_p = (
-                self.get_param_size() * self.p / init_size / 32 / group_size
-            )
+            mea_uncer_r, estimation_x = torch.var_mean(torch.tensor(group_estimation))
+            est_uncert_p = self.get_param_size() * self.p / init_size / 32 / group_size
             estimation = [estimation_x]
 
         error = 0
@@ -222,8 +216,7 @@ class fault_model:
                         if n == 2:
                             estimation.pop(0)
                         estimation.append(
-                            (n - 1) / n * estimation[-1]
-                            + 1 / n * group_estimation[-1]
+                            (n - 1) / n * estimation[-1] + 1 / n * group_estimation[-1]
                         )
 
                     if adaptive_func(estimation):
@@ -310,10 +303,8 @@ class fault_model:
             result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1)
-                                    for i in self.shape[key_id]])
-                attack_result = attack_func(
-                    corrupt_dict[key][corrupt_idx].item())
+                corrupt_idx = tuple([randint(0, i - 1) for i in self.shape[key_id]])
+                attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
                 if not type(attack_result) is tuple:
                     corrupt_dict[key][corrupt_idx] = attack_result
                 else:
@@ -370,7 +361,7 @@ class fault_model:
                     self.input_shape[i + 1][1] ** 2 * s * s * n * m
                 )
             elif len(self.shape[i]) == 2:
-                p = self.input_shape[i][0]*self.input_shape[i][1]  # 要 n * m ?
+                p = self.input_shape[i][0] * self.input_shape[i][1]  # 要 n * m ?
                 self.compute_amount.append(p)
         self.clear_handles()
 
@@ -385,15 +376,14 @@ class fault_model:
         nonzero = 1 - torch.tensor(self.zero_rate)
         sern = []
         input_size = (
-            self.input_shape[0][0] *
-            self.input_shape[0][1] * self.input_shape[0][2]
+            self.input_shape[0][0] * self.input_shape[0][1] * self.input_shape[0][2]
         )
         big_cnn = False
         k = 1 / 64
         if input_size > 200 * 200 * 3:
             big_cnn = True
         for i in range(layernum):
-            later_compute = sum(self.compute_amount[i + 1:])
+            later_compute = sum(self.compute_amount[i + 1 :])
             now_compute = later_compute + self.compute_amount[i]
             if i == layernum - 1:
                 if len(self.shape[i]) != 2:
@@ -444,9 +434,7 @@ class fault_model:
             self.bit_dist = bit_distri / 10000.0
         return self.bit_dist
 
-    def register_hook(
-        self, hook: Callable[..., None], hook_type="forward"
-    ) -> None:
+    def register_hook(self, hook: Callable[..., None], hook_type="forward") -> None:
         """Register a specified type hook function in specified layer"""
         model = self.model
         for key in self.keys:
@@ -487,9 +475,7 @@ class fault_model:
             if isinstance(module, layer_type):
                 alter_func(model, module, name)
 
-    def reluA_protection(
-        self, protect_layers=torch.nn.ReLU
-    ) -> None:
+    def reluA_protection(self, protect_layers=torch.nn.ReLU) -> None:
         self.act_max = []
 
         def act_max_forward_hook(module, input, output):
@@ -497,6 +483,7 @@ class fault_model:
 
         def record_layer_actmax(model, relu: torch.nn.ReLU, name):
             relu.register_forward_hook(act_max_forward_hook)
+
         self.layer_alter(record_layer_actmax, torch.nn.ReLU)
         get_result(self.model, self.valid_data)
         self.clear_handles()
@@ -516,28 +503,30 @@ class fault_model:
         self.var = 0
         for key in self.keys:
             self.config.append(torch.std_mean(self.pure_dict[key]))
+
         def alter_zscore(model, conv: torch.nn.Conv2d, name):
             conv.forward = MethodType(
-                partial(zscore_forward, *self.config[self.var]), conv)
+                partial(zscore_forward, *self.config[self.var]), conv
+            )
             self.var += 1
             setattr(model, name, conv)
 
         self.layer_alter(alter_zscore, torch.nn.Conv2d, model)
         self.var = 0
         self.model = torch.jit.trace(model, self.valid_data[0])
-        get_result(self.model,self.valid_data)
+        get_result(self.model, self.valid_data)
 
     def zscore_protect_revoke(self):
         self.model = self.orig_model
 
-    def relu6_protection(
-        self, protect_layers=torch.nn.ReLU
-    ) -> None:
+    def relu6_protection(self, protect_layers=torch.nn.ReLU) -> None:
         """Warning:
         this will lower model's precision when no fault happening
         """
-        self.layer_alter(lambda model, module, name: setattr(
-            model, name, torch.nn.ReLU6()), protect_layers)
+        self.layer_alter(
+            lambda model, module, name: setattr(model, name, torch.nn.ReLU6()),
+            protect_layers,
+        )
 
     def __save_layer_info_hook(
         self, model: torch.nn.Module, input_val: torch.Tensor, output: torch.Tensor

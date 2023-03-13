@@ -38,8 +38,9 @@ class ToolTest(unittest.TestCase):
         self.assertTrue(check_range(self.fi.synthesis_error, 8, 12))
 
     def test_register_hook(self):
-        def blank_hook(x,y):
+        def blank_hook(x, y):
             pass
+
         self.fi.register_hook(blank_hook)
         self.assertEqual(len(self.fi.handles), len(self.fi.keys))
 

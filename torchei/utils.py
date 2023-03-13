@@ -1,6 +1,6 @@
 import struct
 from random import randint
-from typing import Callable, OrderedDict, List
+from typing import Callable, List, OrderedDict
 
 import numpy as np
 import torch
@@ -18,16 +18,22 @@ __all__ = [
     "single_bit_flip_verbose",
     "monte_carlo_hook",
     "zscore_forward",
-    "zscore_hook"
+    "zscore_hook",
 ]
 
 
-def zscore_forward(std: torch.Tensor(), mean: torch.Tensor, self: torch.nn.Conv2d, x: torch.Tensor):
+def zscore_forward(
+    std: torch.Tensor(), mean: torch.Tensor, self: torch.nn.Conv2d, x: torch.Tensor
+):
     self.weight *= ~(torch.abs((self.weight - mean) / std) > 1000)
     return self._conv_forward(x, self.weight, self.bias)
 
-def zscore_hook(std: torch.Tensor(), mean: torch.Tensor, module: torch.nn.Conv2d, x: torch.Tensor):
+
+def zscore_hook(
+    std: torch.Tensor(), mean: torch.Tensor, module: torch.nn.Conv2d, x: torch.Tensor
+):
     module.weight *= ~(torch.abs((module.weight - mean) / std) > 1000)
+
 
 def emat(
     Per: List[float],
@@ -94,8 +100,7 @@ def sequence_lim_adaptive(
     if len(estimation) > times:
         return all(
             not (
-                torch.abs(
-                    (estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
+                torch.abs((estimation[-i] - estimation[-i - 1])) / estimation[-i - 1]
                 > deviation
             )
             for i in range(1, times + 1)
@@ -146,7 +151,7 @@ def single_bit_flip(num: float, bit: int = None, verbose: bool = False) -> float
             insert_bit = "1"
         else:
             print("Error !!!")
-        bits = bits[0:bit] + insert_bit + bits[bit + 1:]
+        bits = bits[0:bit] + insert_bit + bits[bit + 1 :]
         if verbose:
             return bin_to_float(bits), bit, insert_bit
         return bin_to_float(bits)

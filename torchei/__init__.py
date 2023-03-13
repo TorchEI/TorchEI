@@ -1,7 +1,7 @@
 from .fault_model import fault_model
 from .utils import *
 
-version = "0.1.2"
+version = "1.0.0"
 
 __all__ = [
     "fault_model",
