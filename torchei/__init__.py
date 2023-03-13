@@ -15,5 +15,5 @@ __all__ = [
     "single_bit_flip_31",
     "single_bit_flip",
     "single_bit_flip_verbose",
-    "version"
+    "version",
 ]
