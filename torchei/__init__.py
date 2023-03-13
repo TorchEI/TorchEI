@@ -9,8 +9,6 @@ __all__ = [
     "emat",
     "get_result",
     "sequence_lim_adaptive",
-    "blank_hook",
-    "zscore_dr_hook",
     "float_to_bin",
     "bin_to_float",
     "set_zero",
