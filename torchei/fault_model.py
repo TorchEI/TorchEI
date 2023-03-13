@@ -21,8 +21,7 @@ from .utils import (
     sequence_lim_adaptive,
     single_bit_flip,
     zscore_forward,
-    zscore_hook,
-)
+    )
 
 __all__ = ["fault_model"]
 

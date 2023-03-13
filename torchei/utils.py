@@ -4,7 +4,6 @@ from typing import Callable, List, OrderedDict
 
 import numpy as np
 import torch
-from scipy import stats
 
 __all__ = [
     "monte_carlo",
