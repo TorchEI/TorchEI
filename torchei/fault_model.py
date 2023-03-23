@@ -21,6 +21,7 @@ from .utils import (
     sequence_lim_adaptive,
     single_bit_flip,
     zscore_forward,
+    zscore_hook,
 )
 
 __all__ = ["fault_model"]
@@ -361,7 +362,7 @@ class fault_model:
                     self.input_shape[i + 1][1] ** 2 * s * s * n * m
                 )
             elif len(self.shape[i]) == 2:
-                p = self.input_shape[i][0] * self.input_shape[i][1]  # 要 n * m ?
+                p = self.shape[i][0] * self.shape[i][1]
                 self.compute_amount.append(p)
         self.clear_handles()
 
