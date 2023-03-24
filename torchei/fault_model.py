@@ -150,7 +150,7 @@ class fault_model:
         kalman: bool = False,
         adaptive: bool = False,
         **kwargs,
-    ) -> Union[list, float]:
+    ) -> Union[List, float]:
         """Optional params:
         group_size:      Divide in group or not, >0 means group and its group_size
         kalman:          Use Kalman Filter in estimating
@@ -239,7 +239,7 @@ class fault_model:
         kalman: bool = False,
         attack_type="weight",
         **kwargs,
-    ) -> Union[list, float]:
+    ) -> Union[List, float]:
         """Inject error using Monte Carlo method"""
         return self.reliability_calc(
             iteration=iteration,
@@ -271,7 +271,7 @@ class fault_model:
         p: float,
         kalman: bool = False,
         **kwargs,
-    ) -> Union[list, float]:
+    ) -> Union[List, float]:
         """Inject error using EMAT method"""
         return self.reliability_calc(
             iteration=iteration,
@@ -293,18 +293,27 @@ class fault_model:
     def layer_single_attack(
         self,
         layer_iter: int,
+        layer_id: List = None,
         attack_func: Callable[[float], Any] = None,
         error_rate=True,
-    ) -> list:
+    ) -> List:
         """Inject single error in layer per iteration"""
         if attack_func is None:
             attack_func = single_bit_flip
         result = []
-        for key_id, key in enumerate(self.keys):
+        if layer_id is None:
+            keys = self.keys
+            shape = self.shape
+        elif isinstance(layer_id, List):
+            keys = [self.keys[idx] for idx in layer_id]
+            shape = [self.shape[idx] for idx in layer_id]
+        else:
+            raise ("layer_id should be a list")
+        for key_id, key in enumerate(keys):
             result.append([])
             for _ in tqdm(range(layer_iter)):
                 corrupt_dict = deepcopy(self.pure_dict)
-                corrupt_idx = tuple([randint(0, i - 1) for i in self.shape[key_id]])
+                corrupt_idx = tuple([randint(0, i - 1) for i in shape[key_id]])
                 attack_result = attack_func(corrupt_dict[key][corrupt_idx].item())
                 if not type(attack_result) is tuple:
                     corrupt_dict[key][corrupt_idx] = attack_result
@@ -322,7 +331,7 @@ class fault_model:
             return [sum(i) / self.data_size / layer_iter for i in result]
         return result
 
-    def get_layer_shape(self) -> list:
+    def get_layer_shape(self) -> List:
         return self.shape
 
     def get_param_size(self) -> int:
@@ -335,7 +344,7 @@ class fault_model:
             param_size += temp
         return param_size
 
-    def get_all_keys(self) -> list:
+    def get_all_keys(self) -> List:
         return [*self.pure_dict.keys()]
 
     def calc_detail_info(self) -> None:
@@ -369,7 +378,7 @@ class fault_model:
     def get_selected_keys(self) -> List[str]:
         return self.keys
 
-    def sern_calc(self, output_class: int = None) -> list:
+    def sern_calc(self, output_class: int = None) -> List:
         """Calculating model's sbf error rate using sern algorithm"""
         if self.compute_amount == []:
             self.calc_detail_info()
@@ -420,7 +429,7 @@ class fault_model:
             vessel = torch.cat((vessel, self.pure_dict[i].flatten().cpu()))
         return vessel
 
-    def bit_distribution_statistic(self) -> list:
+    def bit_distribution_statistic(self) -> List:
         """An auxiliary function for `emat_attack` to calculate the bit distribution of the model"""
         if self.bit_dist is None:
             weight = self.unpack_weight()
@@ -453,7 +462,7 @@ class fault_model:
 
     def delimit(
         self, num_points: int = 5, high: int = 100, interval: float = 0.5
-    ) -> list:
+    ) -> List:
         """return a list of points to delimit the certain range"""
         param_size = self.get_param_size()
         max_point = np.double(-lg((high / param_size)))
@@ -542,7 +551,7 @@ class fault_model:
         p.reverse()
         denom = 0
         for i in range(4):
-            exp = 2**i
+            exp = 2 ** (2**i)
             denom += (1 / 2**exp) * p[i]
         self.synthesis_error = 4 / denom
         self.PerturbationTable[-2] = self.synthesis_error
