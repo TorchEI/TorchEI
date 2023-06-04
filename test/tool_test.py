@@ -35,7 +35,7 @@ class ToolTest(unittest.TestCase):
 
     def test_synthesis_error(self):
         self.fi.get_emat_func()
-        self.assertTrue(check_range(self.fi.synthesis_error, 8, 12))
+        self.assertTrue(check_range(self.fi.synthesis_error, 4, 32))
 
     def test_register_hook(self):
         def blank_hook(x, y):

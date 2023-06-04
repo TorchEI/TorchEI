@@ -29,7 +29,7 @@ class AttackTest(unittest.TestCase):
         result = self.fi.layer_single_attack(10)
         self.assertTrue(check_range(mean(result), 1 / 64 / 2, 0.1))
         attack_func = self.fi.get_emat_func()
-        self.fi.layer_single_attack(10, attack_func)
+        self.fi.layer_single_attack(10, attack_func = attack_func)
         self.assertTrue(check_range(mean(result), 1 / 64 / 2, 0.1))
 
     def test_reliability_calc(self):
