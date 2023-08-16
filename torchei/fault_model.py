@@ -29,15 +29,20 @@ __all__ = ["fault_model", "cv_layer_filter", "nlp_layer_filter"]
 
 cv_layer_filter = [
     ["weight"],  # must have
-    ["feature", "conv", "fc", "linear", "classifier", "downsample", "att"],  # have one of
+    [
+        "feature",
+        "conv",
+        "fc",
+        "linear",
+        "classifier",
+        "downsample",
+        "att",
+    ],  # have one of
     ["bn"],  # don't have
     2,  # least dimension
 ]
 
-nlp_layer_filter = [["weight"], 
-                    ["embedding", "attention"], 
-                    ["norm"], 
-                    2]
+nlp_layer_filter = [["weight"], ["embedding", "attention"], ["norm"], 2]
 
 data_type = TypeVar("data_type")
 result_type = TypeVar("result_type")
@@ -46,7 +51,7 @@ result_type = TypeVar("result_type")
 def log_wrap(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logging.info(func.__name__,args,kwargs)
+        logging.info(func.__name__, args, kwargs)
         try:
             return func(*args, **kwargs)
         except Exception as e:
@@ -54,6 +59,7 @@ def log_wrap(func):
             logging.error(f"Error in function {func.__name__}: {e}")
             traceback.print_exc()
             raise e
+
     return wrapper
 
 
@@ -68,7 +74,7 @@ class fault_model:
         infer_func: Callable[[data_type], result_type] = get_result,
         layer_filter: List = None,
         to_cuda: bool = True,
-        device:str = "cuda:1"
+        device: str = "cuda:1",
     ) -> None:
         log_path = (
             os.path.dirname(os.path.abspath(__file__))
@@ -83,7 +89,7 @@ class fault_model:
                 logging.FileHandler(log_path, "a"),
             ],
         )
-        print(f'log saved to {log_path}')
+        print(f"log saved to {log_path}")
         logging.info(str(model)[:16])
         if layer_filter is None:
             layer_filter = cv_layer_filter
@@ -160,6 +166,7 @@ class fault_model:
 
     def time_decorator(self, func):
         """return same function but record its time cost using self.time"""
+
         @wraps(func)
         def wrapper(*args, **kw):
             s = monotonic_ns()
@@ -288,7 +295,10 @@ class fault_model:
         )
 
     def get_mc_attacker(
-        self, p: float, attack_func: Callable[[float], float]=single_bit_flip, attack_type="weight"
+        self,
+        p: float,
+        attack_func: Callable[[float], float] = single_bit_flip,
+        attack_type="weight",
     ) -> Callable[[None], None]:
         """Wrapper for injecting error using Monte Carlo method"""
         if attack_type == "weight":
@@ -533,7 +543,7 @@ class fault_model:
         self.layer_alter(alter_reluA, protect_layers)
 
     @log_wrap
-    def zscore_protect(self, layer_type:torch.nn.Module = torch.nn.Conv2d) -> None:
+    def zscore_protect(self, layer_type: torch.nn.Module = torch.nn.Conv2d) -> None:
         """Use zscore detect bit flip errors"""
         model = self.model
         self.orig_model = deepcopy(model)
@@ -544,7 +554,7 @@ class fault_model:
 
         def alter_zscore(model, layer: torch.nn.Module, name) -> None:
             layer.forward = MethodType(
-                partial(zscore_forward, *self.config[self.var]),layer 
+                partial(zscore_forward, *self.config[self.var]), layer
             )
             self.var += 1
             setattr(model, name, layer)
