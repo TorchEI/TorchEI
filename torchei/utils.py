@@ -1,6 +1,6 @@
 import struct
 from random import randint
-from typing import Callable, List, OrderedDict
+from typing import Callable, OrderedDict, List
 
 import numpy as np
 import torch
@@ -17,7 +17,6 @@ __all__ = [
     "single_bit_flip_verbose",
     "monte_carlo_hook",
     "zscore_forward",
-    "zscore_hook",
 ]
 
 
@@ -26,12 +25,6 @@ def zscore_forward(
 ):
     self.weight *= ~(torch.abs((self.weight - mean) / std) > 1000)
     return self._conv_forward(x, self.weight, self.bias)
-
-
-def zscore_hook(
-    std: torch.Tensor(), mean: torch.Tensor, module: torch.nn.Conv2d, x: torch.Tensor
-):
-    module.weight *= ~(torch.abs((module.weight - mean) / std) > 1000)
 
 
 def emat(
@@ -70,10 +63,10 @@ def get_result(
     model: torch.nn.Module,
     data: torch.Tensor,
     topn: int = 1,
-    reserve_prob: bool = False,
+    reserve_prob: bool = False, # return probability of output
 ) -> torch.Tensor:
     if (not data.is_cuda) and next(model.parameters()).is_cuda:
-        data = data.to("cuda")
+        data = data.to(next(model.parameters()))
     output = torch.tensor([], device=data.device)
     for i in data:
         output = torch.cat((output, model(i)))
@@ -88,7 +81,7 @@ def get_result(
             result[idx][0] = topn_catid
             result[idx][1] = topn_prop
         else:
-            topn_prop, topn_catid = torch.topk(i, topn)
+            _, topn_catid = torch.topk(i, topn)
             result[idx] = topn_catid
     return result
 

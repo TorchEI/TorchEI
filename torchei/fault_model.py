@@ -1,15 +1,17 @@
 from copy import deepcopy
-from functools import partial
-from math import log10 as lg
+from functools import partial, wraps
 from random import randint
 from statistics import mean
 from time import monotonic_ns
 from types import MethodType
 from typing import Any, Callable, List, TypeVar, Union
+from datetime import datetime
 
+import os
+import logging
+import traceback
 import numpy as np
 import torch
-import torchstat
 from tqdm import tqdm
 
 from .utils import (
@@ -21,25 +23,44 @@ from .utils import (
     sequence_lim_adaptive,
     single_bit_flip,
     zscore_forward,
-    zscore_hook,
 )
 
-__all__ = ["fault_model"]
+__all__ = ["fault_model", "cv_layer_filter", "nlp_layer_filter"]
 
-conv_fc_layer_filter = [
+cv_layer_filter = [
     ["weight"],  # must have
-    ["feature", "conv", "fc", "linear", "classifier", "downsample"],  # have one of
+    ["feature", "conv", "fc", "linear", "classifier", "downsample", "att"],  # have one of
     ["bn"],  # don't have
     2,  # least dimension
 ]
+
+nlp_layer_filter = [["weight"], 
+                    ["embedding", "attention"], 
+                    ["norm"], 
+                    2]
 
 data_type = TypeVar("data_type")
 result_type = TypeVar("result_type")
 
 
+def log_wrap(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        logging.info(func.__name__,args,kwargs)
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logging.info(f"Locals : {locals()}")
+            logging.error(f"Error in function {func.__name__}: {e}")
+            traceback.print_exc()
+            raise e
+    return wrapper
+
+
 class fault_model:
     """fault model of DNN in `torchei`"""
 
+    @log_wrap
     def __init__(
         self,
         model: torch.nn.Module,
@@ -47,14 +68,30 @@ class fault_model:
         infer_func: Callable[[data_type], result_type] = get_result,
         layer_filter: List = None,
         to_cuda: bool = True,
+        device:str = "cuda:1"
     ) -> None:
+        log_path = (
+            os.path.dirname(os.path.abspath(__file__))
+            + f"/log/{str(model)[:6]}{datetime.now().strftime('%m-%d-%H-%M')}.log"
+        )
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(levelname)s-%(asctime)s  : %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler(log_path, "a"),
+            ],
+        )
+        print(f'log saved to {log_path}')
+        logging.info(str(model)[:16])
         if layer_filter is None:
-            layer_filter = conv_fc_layer_filter
+            layer_filter = cv_layer_filter
         model.eval()
         if to_cuda and torch.cuda.is_available():
-            model.to("cuda")
+            model.to(device)
             if isinstance(input_data, torch.Tensor):
-                input_data = input_data.to("cuda")
+                input_data = input_data.to(device)
         self.model = model.requires_grad_(False)
         self.pure_dict = deepcopy(model.state_dict())
         example = [*self.pure_dict.values()][0]
@@ -66,7 +103,7 @@ class fault_model:
         self.valid_data = input_data
         self.data_size = self.valid_data.shape[0] * self.valid_data.shape[1]
         self.infer = infer_func
-        self.keys = []
+        self._keys = []
         self.shape = []
         self.change_layer_filter(layer_filter)
         self.bitlen = 8 if self.quant else 32
@@ -90,7 +127,8 @@ class fault_model:
         # this is a preempt var for user
         self.var = None
 
-    def change_layer_filter(self, layer_filter: List) -> None:
+    @log_wrap
+    def change_layer_filter(self, layer_filter: List[str]) -> None:
         """
         Select keys from state_dict according to layer_filter
 
@@ -101,7 +139,7 @@ class fault_model:
         assert len(layer_filter) == 4
         if not all(isinstance(x, list) for x in layer_filter[:-1]):
             raise AssertionError
-        for key in [*self.pure_dict.keys()]:
+        for key in self.get_all_keys():
             flag = [True, len(layer_filter[1]) == 0, True]
             for must_contain in layer_filter[0]:
                 if must_contain not in key:
@@ -115,14 +153,14 @@ class fault_model:
                     flag[2] = False
                     break
             if all(flag) and len(self.pure_dict[key].shape) >= layer_filter[-1]:
-                self.keys.append(key)
+                self._keys.append(key)
 
-        self.shape = [[*self.pure_dict[key].shape] for key in self.keys]
+        self.shape = [[*self.pure_dict[key].shape] for key in self._keys]
         self.layer_num = len(self.shape)
 
-    def time_decorator(self, func) -> Callable[..., Any]:
+    def time_decorator(self, func):
         """return same function but record its time cost using self.time"""
-
+        @wraps(func)
         def wrapper(*args, **kw):
             s = monotonic_ns()
             result = func(*args, **kw)
@@ -143,6 +181,7 @@ class fault_model:
         self.clear_handles()
         self.register_hook(partial(inject_hook, self.rng), hook_type="forward_pre")
 
+    @log_wrap
     def reliability_calc(
         self,
         iteration: int,
@@ -235,7 +274,7 @@ class fault_model:
         self,
         iteration: int,
         p: float,
-        attack_func: Callable[[float], float] = None,
+        attack_func: Callable[[float], float] = single_bit_flip,
         kalman: bool = False,
         attack_type="weight",
         **kwargs,
@@ -243,22 +282,20 @@ class fault_model:
         """Inject error using Monte Carlo method"""
         return self.reliability_calc(
             iteration=iteration,
-            error_inject=self.mc_wrapper(p, attack_func, attack_type),
+            error_inject=self.get_mc_attacker(p, attack_func, attack_type),
             kalman=kalman,
             **kwargs,
         )
 
-    def mc_wrapper(
-        self, p: float, attack_func: Callable[[float], float], attack_type="weight"
+    def get_mc_attacker(
+        self, p: float, attack_func: Callable[[float], float]=single_bit_flip, attack_type="weight"
     ) -> Callable[[None], None]:
         """Wrapper for injecting error using Monte Carlo method"""
-        if attack_func is None:
-            attack_func = single_bit_flip
         if attack_type == "weight":
-            inject_func = partial(monte_carlo, attack_func, p, self.keys)
+            inject_func = partial(monte_carlo, attack_func, p, self._keys)
             error_inject = partial(self.weight_ei, inject_func)
         elif attack_type == "neuron":
-            inject_func = partial(monte_carlo_hook, attack_func, p, self.keys)
+            inject_func = partial(monte_carlo_hook, attack_func, p, self._keys)
             error_inject = partial(self.neuron_ei, inject_func)
         else:
             raise "Inject Type Error, you should select weight or neuron"
@@ -275,37 +312,38 @@ class fault_model:
         """Inject error using EMAT method"""
         return self.reliability_calc(
             iteration=iteration,
-            error_inject=self.emat_wrapper(p),
+            error_inject=self.get_emat_attacker(p),
             kalman=kalman,
             **kwargs,
         )
 
-    def emat_wrapper(self, p: float) -> Callable[[None], None]:
+    def get_emat_attacker(self, p: float) -> Callable[[None], None]:
         """Wrapper for EMAT method, return a inject function"""
         p /= self.bitlen
         self.p = p
         self.__emat_calc()
         inject_func = partial(
-            emat, self.PerturbationTable, self.PropTable, self.device, self.keys
+            emat, self.PerturbationTable, self.PropTable, self.device, self._keys
         )
         return partial(self.weight_ei, inject_func)
 
+    @log_wrap
     def layer_single_attack(
         self,
         layer_iter: int,
-        layer_id: List = None,
         attack_func: Callable[[float], Any] = None,
+        layer_id: List = None,
         error_rate=True,
-    ) -> List:
+    ) -> List[float]:
         """Inject single error in layer per iteration"""
         if attack_func is None:
             attack_func = single_bit_flip
         result = []
         if layer_id is None:
-            keys = self.keys
+            keys = self._keys
             shape = self.shape
         elif isinstance(layer_id, List):
-            keys = [self.keys[idx] for idx in layer_id]
+            keys = [self._keys[idx] for idx in layer_id]
             shape = [self.shape[idx] for idx in layer_id]
         else:
             raise ("layer_id should be a list")
@@ -344,9 +382,10 @@ class fault_model:
             param_size += temp
         return param_size
 
-    def get_all_keys(self) -> List:
+    def get_all_keys(self) -> List[str]:
         return [*self.pure_dict.keys()]
 
+    @log_wrap
     def calc_detail_info(self) -> None:
         """An auxiliary function for `sern_calc` to calculate the detail information of the model"""
         batch = self.valid_data.shape[0]
@@ -376,8 +415,9 @@ class fault_model:
         self.clear_handles()
 
     def get_selected_keys(self) -> List[str]:
-        return self.keys
+        return self._keys
 
+    @log_wrap
     def sern_calc(self, output_class: int = None) -> List:
         """Calculating model's sbf error rate using sern algorithm"""
         if self.compute_amount == []:
@@ -425,7 +465,7 @@ class fault_model:
     def unpack_weight(self) -> torch.Tensor:
         """Unpack the weight of the model to one tensor"""
         vessel = torch.tensor([])
-        for i in self.keys:
+        for i in self._keys:
             vessel = torch.cat((vessel, self.pure_dict[i].flatten().cpu()))
         return vessel
 
@@ -447,7 +487,7 @@ class fault_model:
     def register_hook(self, hook: Callable[..., None], hook_type="forward") -> None:
         """Register a specified type hook function in specified layer"""
         model = self.model
-        for key in self.keys:
+        for key in self._keys:
             key = key.rsplit(".", 1)[0]
             module = model.get_submodule(key)
             if hook_type == "forward_pre":
@@ -460,22 +500,8 @@ class fault_model:
             i.remove()
         self.handles = []
 
-    def delimit(
-        self, num_points: int = 5, high: int = 100, interval: float = 0.5
-    ) -> List:
-        """return a list of points to delimit the certain range"""
-        param_size = self.get_param_size()
-        max_point = np.double(-lg((high / param_size)))
-        remain = max_point % 0.5
-        max_point -= remain
-        if remain > 0.3:
-            max_point += 0.5
-        points = []
-        for i in range(num_points):
-            points.append(max_point + i * interval)
-        return points
-
-    def layer_alter(self, alter_func, layer_type, model=None):
+    @log_wrap
+    def layer_alter(self, alter_func: Callable, layer_type, model=None) -> None:
         if model is None:
             model = self.model
         for name, module in model.named_children():
@@ -485,6 +511,7 @@ class fault_model:
             if isinstance(module, layer_type):
                 alter_func(model, module, name)
 
+    @log_wrap
     def reluA_protection(self, protect_layers=torch.nn.ReLU) -> None:
         self.act_max = []
 
@@ -499,36 +526,38 @@ class fault_model:
         self.clear_handles()
         self.var = 0
 
-        def alter_reluA(model, relu: torch.nn.ReLU, name):
+        def alter_reluA(model, _: torch.nn.ReLU, name) -> None:
             setattr(model, name, torch.nn.Hardtanh(0, self.act_max[self.var]))
             self.var += 1
 
         self.layer_alter(alter_reluA, protect_layers)
 
-    def zscore_protect(self, to_script=True):
+    @log_wrap
+    def zscore_protect(self, layer_type:torch.nn.Module = torch.nn.Conv2d) -> None:
         """Use zscore detect bit flip errors"""
         model = self.model
         self.orig_model = deepcopy(model)
         self.config = []
         self.var = 0
-        for key in self.keys:
+        for key in self._keys:
             self.config.append(torch.std_mean(self.pure_dict[key]))
 
-        def alter_zscore(model, conv: torch.nn.Conv2d, name):
-            conv.forward = MethodType(
-                partial(zscore_forward, *self.config[self.var]), conv
+        def alter_zscore(model, layer: torch.nn.Module, name) -> None:
+            layer.forward = MethodType(
+                partial(zscore_forward, *self.config[self.var]),layer 
             )
             self.var += 1
-            setattr(model, name, conv)
+            setattr(model, name, layer)
 
-        self.layer_alter(alter_zscore, torch.nn.Conv2d, model)
+        self.layer_alter(alter_zscore, layer_type, model)
         self.var = 0
         self.model = torch.jit.trace(model, self.valid_data[0])
         get_result(self.model, self.valid_data)
 
-    def zscore_protect_revoke(self):
+    def zscore_protect_revoke(self) -> None:
         self.model = self.orig_model
 
+    @log_wrap
     def relu6_protection(self, protect_layers=torch.nn.ReLU) -> None:
         """Warning:
         this will lower model's precision when no fault happening
@@ -559,6 +588,7 @@ class fault_model:
             prop = np.array([1, 1, 1, 1, 1, 1])
             self.PropTable = np.append(prop * self.p, [1 - 6 * self.p])
 
+    @log_wrap
     def get_emat_func(self) -> Callable[[float], float]:
         """return a simulate function that simulates single bit flip for ```layer single attack```"""
         self.__emat_calc()
@@ -570,7 +600,3 @@ class fault_model:
             if self.rng.random() < 6 / 32
             else num
         )
-
-    def stat_model(self, granularity: int = 1) -> None:
-        """Print the model's layer information include their keys"""
-        torchstat.stat(self.model.to("cpu"), self.input_shape[1:], granularity)
