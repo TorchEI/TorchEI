@@ -63,7 +63,7 @@ def get_result(
     model: torch.nn.Module,
     data: torch.Tensor,
     topn: int = 1,
-    reserve_prob: bool = False, # return probability of output
+    reserve_prob: bool = False,  # return probability of output
 ) -> torch.Tensor:
     if (not data.is_cuda) and next(model.parameters()).is_cuda:
         data = data.to(next(model.parameters()))
